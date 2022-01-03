@@ -7,3 +7,5 @@ merk.db/
 
 /target
 Cargo.lock
+fuzz/target
+fuzz/coverage

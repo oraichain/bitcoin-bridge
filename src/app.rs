@@ -9,7 +9,22 @@ impl Symbol for Gucci {}
 pub struct InnerApp {
     pub accounts: Accounts<Gucci>,
     pub staking: Staking<Gucci>,
-    pub btc_headers: HeaderQueue,
+    // pub btc_headers: HeaderQueue,
+    count: u8
+}
+
+impl InnerApp {
+    #[call]
+    pub fn set_number(&mut self, n: u8) {
+        self.count = n;
+    }
+
+    #[call]
+    pub fn check_number(&mut self, n: u8) {
+        if n > 3 && n == self.count {
+            panic!("checked number is invalid");
+        }
+    }
 }
 
 impl InitChain for InnerApp {

@@ -1,0 +1,32 @@
+[package]
+name = "nomic-fuzz"
+version = "0.0.0"
+authors = ["Automatically generated"]
+publish = false
+edition = "2018"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+orga = { git = "https://github.com/nomic-io/orga.git", rev = "35e420ad7c9c450e1149983d1b7c5531be0413f0", features = ["merk", "abci"] }
+
+[dependencies.nomic]
+path = ".."
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "call"
+path = "fuzz_targets/call.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "multicall"
+path = "fuzz_targets/multicall.rs"
+test = false
+doc = false
