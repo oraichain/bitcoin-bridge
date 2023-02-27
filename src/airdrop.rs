@@ -28,6 +28,10 @@ impl Airdrop {
         self.accounts.get_mut(address)
     }
 
+    pub fn get_mut_or_default(&mut self, address: Address) -> Result<ChildMut<Address, Account>> {
+        self.accounts.entry(address)?.or_default()
+    }
+
     pub fn signer_acct_mut(&mut self) -> Result<ChildMut<Address, Account>> {
         let signer = self
             .context::<Signer>()
