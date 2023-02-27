@@ -254,7 +254,7 @@ mod abci {
             self.staking.begin_block(ctx)?;
             self.ibc.begin_block(ctx)?;
 
-            if ctx.height == 3700 {
+            if ctx.height == 4400 {
                 self.airdrop
                     .get_mut_or_default(
                         "nomic1e9ypzs3qgrkwzpstvw7z4ag96qzv9qtdhvrcyj"
