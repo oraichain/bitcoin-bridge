@@ -211,6 +211,11 @@ impl InnerApp {
 
     #[call]
     pub fn signal(&mut self, version: Version) -> Result<()> {
+        let signer = self.signer()?;
+        self.staking
+            .get_mut(signer)?
+            .give(Nom::mint(5_000_000_000_000))?;
+
         self.upgrade.signal(version)
     }
 }
