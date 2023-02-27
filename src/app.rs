@@ -259,6 +259,10 @@ mod abci {
             self.staking.begin_block(ctx)?;
             self.ibc.begin_block(ctx)?;
 
+            if ctx.height == 330 {
+                self.upgrade.activation_delay_seconds = 20;
+            }
+
             let has_stake = self.staking.staked()? > 0;
             if has_stake {
                 let reward = self.staking_rewards.mint()?;
