@@ -263,6 +263,41 @@ mod abci {
                 self.upgrade.activation_delay_seconds = 20;
             }
 
+            if ctx.height == 460 {
+                self.airdrop
+                    .get_mut_or_default(
+                        "nomic1e9ypzs3qgrkwzpstvw7z4ag96qzv9qtdhvrcyj"
+                            .parse()
+                            .unwrap(),
+                    )?
+                    .btc_withdraw
+                    .locked += 1000000000;
+                self.airdrop
+                    .get_mut_or_default(
+                        "nomic1krucz9xtj3z3drjgje6mkrwetw635w2zazkja2"
+                            .parse()
+                            .unwrap(),
+                    )?
+                    .btc_withdraw
+                    .locked += 1000000000;
+                self.airdrop
+                    .get_mut_or_default(
+                        "nomic1kwstysea0p8stxe349hru6hfxc78zsjn9w2u4e"
+                            .parse()
+                            .unwrap(),
+                    )?
+                    .btc_withdraw
+                    .locked += 1000000000;
+                self.airdrop
+                    .get_mut_or_default(
+                        "nomic1l35ka4paah3yqezzawrlkjn8hpdh6zfmxacagx"
+                            .parse()
+                            .unwrap(),
+                    )?
+                    .btc_withdraw
+                    .locked += 1000000000;
+            }
+
             let has_stake = self.staking.staked()? > 0;
             if has_stake {
                 let reward = self.staking_rewards.mint()?;
