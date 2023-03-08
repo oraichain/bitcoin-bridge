@@ -364,6 +364,11 @@ impl StartCmd {
 
                 edit_block_time(&config_path, "3s");
                 
+                if !cmd.config.state_sync_rpc.is_empty() {
+                    let servers: Vec<_> = cmd.config.state_sync_rpc.iter().map(|s| s.as_str()).collect();
+                    configure_for_statesync(&home.join("tendermint/config/config.toml"), &servers);
+                }
+
                 configure_node(&config_path, |cfg| {
                     cfg["rpc"]["laddr"] = toml_edit::value("tcp://0.0.0.0:26657");
                 });
@@ -389,15 +394,10 @@ impl StartCmd {
             if let Some(genesis) = cmd.config.genesis {
                 let genesis_bytes = if genesis.contains('\n') {
                    genesis.as_bytes().to_vec()
-                }
-                else {
-                std::fs::read(genesis)?
+                } else {
+                    std::fs::read(genesis)?
                 };
                 std::fs::write(home.join("tendermint/config/genesis.json"), genesis_bytes)?;
-            }
-            if !cmd.config.state_sync_rpc.is_empty() {
-                let servers: Vec<_> = cmd.config.state_sync_rpc.iter().map(|s| s.as_str()).collect();
-                configure_for_statesync(&home.join("tendermint/config/config.toml"), &servers);
             }
             #[cfg(feature = "compat")]
             if cmd.migrate || had_legacy {
