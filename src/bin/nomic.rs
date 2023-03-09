@@ -59,7 +59,7 @@ fn my_address() -> Address {
 pub struct Opts {
     #[clap(subcommand)]
     cmd: Command,
-    
+
     /// Specify the Tendermint RPC endpoint which client requets will be submitted to.
     #[clap(global = true, long, short, default_value = "localhost:26657")]
     node: String,
@@ -359,7 +359,7 @@ impl StartCmd {
                 }
 
                 edit_block_time(&config_path, "3s");
-                
+
                 if !cmd.config.state_sync_rpc.is_empty() {
                     let servers: Vec<_> = cmd.config.state_sync_rpc.iter().map(|s| s.as_str()).collect();
                     configure_for_statesync(&home.join("tendermint/config/config.toml"), &servers);
@@ -1072,7 +1072,10 @@ impl SetSignatoryKeyCmd {
     }
 }
 
-async fn deposit(dest: DepositCommitment, app_client: TendermintClient<nomic::app::App>) -> Result<()> {
+async fn deposit(
+    dest: DepositCommitment,
+    app_client: TendermintClient<nomic::app::App>,
+) -> Result<()> {
     let sigset = app_client.bitcoin.checkpoints.active_sigset().await??;
     let script = sigset.output_script(dest.commitment_bytes()?.as_slice())?;
     let btc_addr = bitcoin::Address::from_script(&script, nomic::bitcoin::NETWORK).unwrap();
@@ -1271,7 +1274,7 @@ async fn main() {
     }));
 
     let opts = Opts::parse();
-    
+
     // TODO: move relaxed url parsing into TendermintClient
     let node = if !opts.node.starts_with("http") {
         format!("http://{}", opts.node)
@@ -1279,7 +1282,7 @@ async fn main() {
         opts.node
     };
     let client = TendermintClient::<nomic::app::App>::new(&node).unwrap();
-    
+
     if let Err(err) = opts.cmd.run(client).await {
         log::error!("{}", err);
         std::process::exit(1);
