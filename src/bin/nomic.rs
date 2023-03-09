@@ -45,10 +45,6 @@ fn now_seconds() -> i64 {
         .as_secs() as i64
 }
 
-pub fn app_client() -> TendermintClient<nomic::app::App> {
-    TendermintClient::new("http://localhost:26657").unwrap()
-}
-
 fn my_address() -> Address {
     let privkey = load_privkey().unwrap();
     let pubkey = secp256k1::PublicKey::from_secret_key(&secp256k1::Secp256k1::new(), &privkey);
@@ -63,6 +59,10 @@ fn my_address() -> Address {
 pub struct Opts {
     #[clap(subcommand)]
     cmd: Command,
+    
+    /// Specify the Tendermint RPC endpoint which client requets will be submitted to.
+    #[clap(global = true, long, short, default_value = "localhost:26657")]
+    node: String,
 }
 
 #[derive(Parser, Debug)]
@@ -95,34 +95,34 @@ pub enum Command {
 }
 
 impl Command {
-    async fn run(&self) -> Result<()> {
+    async fn run(&self, app_client: TendermintClient<nomic::app::App>) -> Result<()> {
         use Command::*;
         match self {
-            Start(cmd) => cmd.run().await,
-            Send(cmd) => cmd.run().await,
-            SendNbtc(cmd) => cmd.run().await,
-            Balance(cmd) => cmd.run().await,
-            Delegate(cmd) => cmd.run().await,
-            Declare(cmd) => cmd.run().await,
-            Delegations(cmd) => cmd.run().await,
-            Validators(cmd) => cmd.run().await,
-            Unbond(cmd) => cmd.run().await,
-            Redelegate(cmd) => cmd.run().await,
-            Unjail(cmd) => cmd.run().await,
-            Edit(cmd) => cmd.run().await,
-            Claim(cmd) => cmd.run().await,
-            ClaimAirdrop(cmd) => cmd.run().await,
-            Airdrop(cmd) => cmd.run().await,
-            Relayer(cmd) => cmd.run().await,
-            Signer(cmd) => cmd.run().await,
-            SetSignatoryKey(cmd) => cmd.run().await,
-            Deposit(cmd) => cmd.run().await,
-            InterchainDeposit(cmd) => cmd.run().await,
-            Withdraw(cmd) => cmd.run().await,
-            IbcDepositNbtc(cmd) => cmd.run().await,
-            IbcWithdrawNbtc(cmd) => cmd.run().await,
-            Grpc(cmd) => cmd.run().await,
-            IbcTransfer(cmd) => cmd.run().await,
+            Start(cmd) => cmd.run(app_client).await,
+            Send(cmd) => cmd.run(app_client).await,
+            SendNbtc(cmd) => cmd.run(app_client).await,
+            Balance(cmd) => cmd.run(app_client).await,
+            Delegate(cmd) => cmd.run(app_client).await,
+            Declare(cmd) => cmd.run(app_client).await,
+            Delegations(cmd) => cmd.run(app_client).await,
+            Validators(cmd) => cmd.run(app_client).await,
+            Unbond(cmd) => cmd.run(app_client).await,
+            Redelegate(cmd) => cmd.run(app_client).await,
+            Unjail(cmd) => cmd.run(app_client).await,
+            Edit(cmd) => cmd.run(app_client).await,
+            Claim(cmd) => cmd.run(app_client).await,
+            ClaimAirdrop(cmd) => cmd.run(app_client).await,
+            Airdrop(cmd) => cmd.run(app_client).await,
+            Relayer(cmd) => cmd.run(app_client).await,
+            Signer(cmd) => cmd.run(app_client).await,
+            SetSignatoryKey(cmd) => cmd.run(app_client).await,
+            Deposit(cmd) => cmd.run(app_client).await,
+            InterchainDeposit(cmd) => cmd.run(app_client).await,
+            Withdraw(cmd) => cmd.run(app_client).await,
+            IbcDepositNbtc(cmd) => cmd.run(app_client).await,
+            IbcWithdrawNbtc(cmd) => cmd.run(app_client).await,
+            Grpc(cmd) => cmd.run(app_client).await,
+            IbcTransfer(cmd) => cmd.run(app_client).await,
         }
     }
 }
@@ -166,7 +166,7 @@ pub struct StartCmd {
 }
 
 impl StartCmd {
-    async fn run(&self) -> Result<()> {
+    async fn run(&self, mut app_client: TendermintClient<nomic::app::App>) -> Result<()> {
         let mut cmd = self.clone();
 
         tokio::task::spawn_blocking(move || {
@@ -419,7 +419,7 @@ impl StartCmd {
                     loop {
                         let signal_version = signal_version.clone();
                         tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-                        if let Err(err) = app_client()
+                        if let Err(err) = app_client
                             .pay_from(async move |client| {
                                 client.signal(signal_version.try_into().unwrap()).await
                             })
@@ -558,8 +558,8 @@ pub struct SendCmd {
 }
 
 impl SendCmd {
-    async fn run(&self) -> Result<()> {
-        Ok(app_client()
+    async fn run(&self, mut app_client: TendermintClient<nomic::app::App>) -> Result<()> {
+        Ok(app_client
             .pay_from(async move |client| client.accounts.take_as_funding(MIN_FEE.into()).await)
             .accounts
             .transfer(self.to_addr, self.amount.into())
@@ -574,8 +574,8 @@ pub struct SendNbtcCmd {
 }
 
 impl SendNbtcCmd {
-    async fn run(&self) -> Result<()> {
-        Ok(app_client()
+    async fn run(&self, mut app_client: TendermintClient<nomic::app::App>) -> Result<()> {
+        Ok(app_client
             .pay_from(async move |client| {
                 client
                     .bitcoin
@@ -593,17 +593,17 @@ pub struct BalanceCmd {
 }
 
 impl BalanceCmd {
-    async fn run(&self) -> Result<()> {
+    async fn run(&self, app_client: TendermintClient<nomic::app::App>) -> Result<()> {
         let address = self.address.unwrap_or_else(|| my_address());
         println!("address: {}", address);
 
-        let balance = app_client().accounts.balance(address).await??;
+        let balance = app_client.accounts.balance(address).await??;
         println!("{} NOM", balance);
 
-        let balance = app_client().bitcoin.accounts.balance(address).await??;
+        let balance = app_client.bitcoin.accounts.balance(address).await??;
         println!("{} NBTC", balance);
 
-        let balance = app_client().escrowed_nbtc(address).await??;
+        let balance = app_client.escrowed_nbtc(address).await??;
         println!("{} IBC-escrowed NBTC", balance);
 
         Ok(())
@@ -614,9 +614,9 @@ impl BalanceCmd {
 pub struct DelegationsCmd;
 
 impl DelegationsCmd {
-    async fn run(&self) -> Result<()> {
+    async fn run(&self, app_client: TendermintClient<nomic::app::App>) -> Result<()> {
         let address = my_address();
-        let delegations = app_client().staking.delegations(address).await??;
+        let delegations = app_client.staking.delegations(address).await??;
 
         println!(
             "delegated to {} validator{}",
@@ -662,8 +662,8 @@ impl DelegationsCmd {
 pub struct ValidatorsCmd;
 
 impl ValidatorsCmd {
-    async fn run(&self) -> Result<()> {
-        let mut validators = app_client().staking.all_validators().await??;
+    async fn run(&self, app_client: TendermintClient<nomic::app::App>) -> Result<()> {
+        let mut validators = app_client.staking.all_validators().await??;
 
         validators.sort_by(|a, b| b.amount_staked.cmp(&a.amount_staked));
 
@@ -687,8 +687,8 @@ pub struct DelegateCmd {
 }
 
 impl DelegateCmd {
-    async fn run(&self) -> Result<()> {
-        Ok(app_client()
+    async fn run(&self, mut app_client: TendermintClient<nomic::app::App>) -> Result<()> {
+        Ok(app_client
             .pay_from(async move |client| {
                 client
                     .accounts
@@ -724,7 +724,7 @@ struct DeclareInfo {
 }
 
 impl DeclareCmd {
-    async fn run(&self) -> Result<()> {
+    async fn run(&self, mut app_client: TendermintClient<nomic::app::App>) -> Result<()> {
         let consensus_key: [u8; 32] = base64::decode(&self.consensus_key)
             .map_err(|_| orga::Error::App("invalid consensus key".to_string()))?
             .try_into()
@@ -752,7 +752,7 @@ impl DeclareCmd {
             min_self_delegation: self.min_self_delegation.into(),
         };
 
-        Ok(app_client()
+        Ok(app_client
             .pay_from(async move |client| {
                 client
                     .accounts
@@ -776,7 +776,7 @@ pub struct EditCmd {
 }
 
 impl EditCmd {
-    async fn run(&self) -> Result<()> {
+    async fn run(&self, mut app_client: TendermintClient<nomic::app::App>) -> Result<()> {
         let info = DeclareInfo {
             moniker: self.moniker.clone(),
             website: self.website.clone(),
@@ -787,7 +787,7 @@ impl EditCmd {
             .map_err(|_| orga::Error::App("invalid json".to_string()))?;
         let info_bytes = info_json.as_bytes().to_vec();
 
-        Ok(app_client()
+        Ok(app_client
             .pay_from(async move |client| client.accounts.take_as_funding(MIN_FEE.into()).await)
             .staking
             .edit_validator_self(
@@ -806,8 +806,8 @@ pub struct UnbondCmd {
 }
 
 impl UnbondCmd {
-    async fn run(&self) -> Result<()> {
-        Ok(app_client()
+    async fn run(&self, mut app_client: TendermintClient<nomic::app::App>) -> Result<()> {
+        Ok(app_client
             .pay_from(async move |client| client.accounts.take_as_funding(MIN_FEE.into()).await)
             .staking
             .unbond_self(self.validator_addr, self.amount.into())
@@ -823,8 +823,8 @@ pub struct RedelegateCmd {
 }
 
 impl RedelegateCmd {
-    async fn run(&self) -> Result<()> {
-        Ok(app_client()
+    async fn run(&self, mut app_client: TendermintClient<nomic::app::App>) -> Result<()> {
+        Ok(app_client
             .pay_from(async move |client| client.accounts.take_as_funding(MIN_FEE.into()).await)
             .staking
             .redelegate_self(
@@ -840,8 +840,8 @@ impl RedelegateCmd {
 pub struct UnjailCmd {}
 
 impl UnjailCmd {
-    async fn run(&self) -> Result<()> {
-        Ok(app_client()
+    async fn run(&self, mut app_client: TendermintClient<nomic::app::App>) -> Result<()> {
+        Ok(app_client
             .pay_from(async move |client| client.accounts.take_as_funding(MIN_FEE.into()).await)
             .staking
             .unjail()
@@ -853,8 +853,8 @@ impl UnjailCmd {
 pub struct ClaimCmd;
 
 impl ClaimCmd {
-    async fn run(&self) -> Result<()> {
-        Ok(app_client()
+    async fn run(&self, mut app_client: TendermintClient<nomic::app::App>) -> Result<()> {
+        Ok(app_client
             .pay_from(async move |client| client.staking.claim_all().await)
             .deposit_rewards()
             .await?)
@@ -867,11 +867,9 @@ pub struct AirdropCmd {
 }
 
 impl AirdropCmd {
-    async fn run(&self) -> Result<()> {
-        let client = app_client();
-
+    async fn run(&self, app_client: TendermintClient<nomic::app::App>) -> Result<()> {
         let addr = self.address.unwrap_or_else(|| my_address());
-        let acct = match client.airdrop.get(addr).await?? {
+        let acct = match app_client.airdrop.get(addr).await?? {
             None => {
                 println!("Address is not eligible for airdrop");
                 return Ok(());
@@ -891,11 +889,9 @@ pub struct ClaimAirdropCmd {
 }
 
 impl ClaimAirdropCmd {
-    async fn run(&self) -> Result<()> {
-        let client = app_client();
-
+    async fn run(&self, mut app_client: TendermintClient<nomic::app::App>) -> Result<()> {
         let addr = self.address.unwrap_or_else(|| my_address());
-        let acct = match client.airdrop.get(addr).await?? {
+        let acct = match app_client.airdrop.get(addr).await?? {
             None => {
                 println!("Address is not eligible for airdrop");
                 return Ok(());
@@ -906,7 +902,7 @@ impl ClaimAirdropCmd {
         let mut claimed = false;
 
         if acct.airdrop1.claimable > 0 {
-            app_client()
+            app_client
                 .pay_from(async move |client| client.airdrop.claim_airdrop1().await)
                 .accounts
                 .give_from_funding_all()
@@ -916,7 +912,7 @@ impl ClaimAirdropCmd {
         }
 
         if acct.btc_deposit.claimable > 0 {
-            app_client()
+            app_client
                 .pay_from(async move |client| client.airdrop.claim_btc_deposit().await)
                 .accounts
                 .give_from_funding_all()
@@ -929,7 +925,7 @@ impl ClaimAirdropCmd {
         }
 
         if acct.btc_withdraw.claimable > 0 {
-            app_client()
+            app_client
                 .pay_from(async move |client| client.airdrop.claim_btc_withdraw().await)
                 .accounts
                 .give_from_funding_all()
@@ -942,7 +938,7 @@ impl ClaimAirdropCmd {
         }
 
         if acct.ibc_transfer.claimable > 0 {
-            app_client()
+            app_client
                 .pay_from(async move |client| client.airdrop.claim_ibc_transfer().await)
                 .accounts
                 .give_from_funding_all()
@@ -992,11 +988,11 @@ impl RelayerCmd {
         Ok(btc_client)
     }
 
-    async fn run(&self) -> Result<()> {
+    async fn run(&self, app_client: TendermintClient<nomic::app::App>) -> Result<()> {
         let create_relayer = async || {
             let btc_client = self.btc_client().await.unwrap();
 
-            Relayer::new(btc_client, app_client()).await
+            Relayer::new(btc_client, app_client.clone()).await
         };
 
         let mut relayer = create_relayer().await;
@@ -1040,7 +1036,7 @@ pub struct SignerCmd {
 }
 
 impl SignerCmd {
-    async fn run(&self) -> Result<()> {
+    async fn run(&self, app_client: TendermintClient<nomic::app::App>) -> Result<()> {
         let signer_dir_path = self
             .path
             .as_ref()
@@ -1053,7 +1049,7 @@ impl SignerCmd {
 
         let signer = Signer::load_or_generate(
             my_address(),
-            app_client(),
+            app_client,
             key_path,
             self.max_withdrawal_rate,
             self.max_sigset_change_rate,
@@ -1070,8 +1066,8 @@ pub struct SetSignatoryKeyCmd {
 }
 
 impl SetSignatoryKeyCmd {
-    async fn run(&self) -> Result<()> {
-        app_client()
+    async fn run(&self, mut app_client: TendermintClient<nomic::app::App>) -> Result<()> {
+        app_client
             .pay_from(async move |client| client.accounts.take_as_funding(MIN_FEE.into()).await)
             .bitcoin
             .set_signatory_key(self.xpub.into())
@@ -1081,8 +1077,8 @@ impl SetSignatoryKeyCmd {
     }
 }
 
-async fn deposit(dest: DepositCommitment) -> Result<()> {
-    let sigset = app_client().bitcoin.checkpoints.active_sigset().await??;
+async fn deposit(dest: DepositCommitment, app_client: TendermintClient<nomic::app::App>) -> Result<()> {
+    let sigset = app_client.bitcoin.checkpoints.active_sigset().await??;
     let script = sigset.output_script(dest.commitment_bytes()?.as_slice())?;
     let btc_addr = bitcoin::Address::from_script(&script, nomic::bitcoin::NETWORK).unwrap();
 
@@ -1116,10 +1112,10 @@ pub struct DepositCmd {
 }
 
 impl DepositCmd {
-    async fn run(&self) -> Result<()> {
+    async fn run(&self, app_client: TendermintClient<nomic::app::App>) -> Result<()> {
         let dest_addr = self.address.unwrap_or_else(|| my_address());
 
-        deposit(DepositCommitment::Address(dest_addr)).await
+        deposit(DepositCommitment::Address(dest_addr), app_client).await
     }
 }
 
@@ -1133,7 +1129,7 @@ pub struct InterchainDepositCmd {
 
 const ONE_DAY_NS: u64 = 86400 * 1_000_000_000;
 impl InterchainDepositCmd {
-    async fn run(&self) -> Result<()> {
+    async fn run(&self, app_client: TendermintClient<nomic::app::App>) -> Result<()> {
         use orga::ibc::encoding::Adapter;
         let now_ns = now_seconds() as u64 * 1_000_000_000;
         let dest = DepositCommitment::Ibc(IbcDepositCommitment {
@@ -1144,7 +1140,7 @@ impl InterchainDepositCmd {
             timeout_timestamp: now_ns + 8 * ONE_DAY_NS - (now_ns % ONE_DAY_NS),
         });
 
-        deposit(dest).await
+        deposit(dest, app_client).await
     }
 }
 
@@ -1155,12 +1151,12 @@ pub struct WithdrawCmd {
 }
 
 impl WithdrawCmd {
-    async fn run(&self) -> Result<()> {
+    async fn run(&self, mut app_client: TendermintClient<nomic::app::App>) -> Result<()> {
         use nomic::bitcoin::adapter::Adapter;
 
         let script = self.dest.script_pubkey();
 
-        app_client()
+        app_client
             .pay_from(async move |client| {
                 client
                     .withdraw_nbtc(Adapter::new(script), self.amount.into())
@@ -1180,8 +1176,8 @@ pub struct IbcDepositNbtcCmd {
 }
 
 impl IbcDepositNbtcCmd {
-    async fn run(&self) -> Result<()> {
-        Ok(app_client()
+    async fn run(&self, mut app_client: TendermintClient<nomic::app::App>) -> Result<()> {
+        Ok(app_client
             .pay_from(async move |client| {
                 client.ibc_deposit_nbtc(self.to, self.amount.into()).await
             })
@@ -1196,8 +1192,8 @@ pub struct IbcWithdrawNbtcCmd {
 }
 
 impl IbcWithdrawNbtcCmd {
-    async fn run(&self) -> Result<()> {
-        Ok(app_client()
+    async fn run(&self, mut app_client: TendermintClient<nomic::app::App>) -> Result<()> {
+        Ok(app_client
             .pay_from(async move |client| client.ibc_withdraw_nbtc(self.amount.into()).await)
             .noop()
             .await?)
@@ -1211,10 +1207,10 @@ pub struct GrpcCmd {
 }
 
 impl GrpcCmd {
-    async fn run(&self) -> Result<()> {
-        let ibc_client = app_client().ibc.clone();
+    async fn run(&self, app_client: TendermintClient<nomic::app::App>) -> Result<()> {
+        let ibc_client = app_client.ibc.clone();
         orga::ibc::start_grpc(
-            app_client(),
+            app_client,
             ibc_client,
             &|client| client.ibc.clone(),
             self.port,
@@ -1236,7 +1232,7 @@ pub struct IbcTransferCmd {
 
 use orga::ibc::TransferArgs;
 impl IbcTransferCmd {
-    async fn run(&self) -> Result<()> {
+    async fn run(&self, mut app_client: TendermintClient<nomic::app::App>) -> Result<()> {
         let fee: u64 = nomic::app::ibc_fee(self.amount.into())?.into();
         let amount_after_fee = self.amount - fee;
         let transfer_args = TransferArgs {
@@ -1247,7 +1243,7 @@ impl IbcTransferCmd {
             receiver: self.receiver.clone(),
         };
 
-        Ok(app_client()
+        Ok(app_client
             .pay_from(async move |client| {
                 client
                     .ibc_deposit_nbtc(my_address(), self.amount.into())
@@ -1282,7 +1278,16 @@ async fn main() {
     }));
 
     let opts = Opts::parse();
-    if let Err(err) = opts.cmd.run().await {
+    
+    // TODO: move relaxed url parsing into TendermintClient
+    let node = if !opts.node.starts_with("http") {
+        format!("http://{}", opts.node)
+    } else {
+        opts.node
+    };
+    let client = TendermintClient::<nomic::app::App>::new(&node).unwrap();
+    
+    if let Err(err) = opts.cmd.run(client).await {
         log::error!("{}", err);
         std::process::exit(1);
     };
