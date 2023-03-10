@@ -47,7 +47,7 @@ impl FromStr for Network {
 pub struct Config {
     #[clap(long)]
     pub state_sync_rpc: Vec<String>,
-    #[clap(long)]
+    #[clap(long, from_global)]
     pub chain_id: Option<String>,
     #[clap(long)]
     pub genesis: Option<String>,

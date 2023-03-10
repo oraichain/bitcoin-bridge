@@ -4,17 +4,19 @@
 #![feature(async_closure)]
 #![feature(never_type)]
 
+use std::borrow::Borrow;
 use std::convert::TryInto;
 use std::fs::Permissions;
 use std::os::unix::fs::PermissionsExt;
 #[cfg(not(feature = "compat"))]
 use std::os::unix::process::ExitStatusExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use bitcoincore_rpc_async::{Auth, Client as BtcClient};
 use clap::Parser;
 use futures::executor::block_on;
+use log::debug;
 #[cfg(feature = "compat")]
 use nomic::app::{AppV0, CONSENSUS_VERSION};
 use nomic::app::{DepositCommitment, IbcDepositCommitment};
@@ -60,9 +62,28 @@ pub struct Opts {
     #[clap(subcommand)]
     cmd: Command,
 
-    /// Specify the Tendermint RPC endpoint which client requets will be submitted to.
-    #[clap(global = true, long, short, default_value = "localhost:26657")]
-    node: String,
+    /// The Tendermint RPC endpoint to submit client requests to.
+    #[clap(long, short, global = true)]
+    node: Option<String>,
+
+    #[clap(long, global = true)]
+    chain_id: Option<String>,
+
+    #[clap(long, global = true)]
+    network: Option<Network>,
+
+    #[clap(long, global = true)]
+    home: Option<String>,
+}
+
+fn home_dir<S: Borrow<String>>(home: Option<S>, chain_id: Option<S>) -> PathBuf {
+    match home {
+        Some(home) => PathBuf::from_str(home.borrow()).unwrap(),
+        None => {
+            let chain_id = chain_id.expect("Expected a chain-id or home directory to be set");
+            Node::home(chain_id.borrow())
+        }
+    }
 }
 
 #[derive(Parser, Debug)]
@@ -131,8 +152,8 @@ impl Command {
 pub struct StartCmd {
     #[clap(flatten)]
     config: nomic::network::Config,
-    #[clap(long)]
-    pub network: Option<Network>,
+    #[clap(long, from_global)]
+    network: Option<Network>,
     #[clap(long)]
     pub tendermint_logs: bool,
     #[clap(long)]
@@ -152,7 +173,7 @@ pub struct StartCmd {
     #[cfg(not(feature = "compat"))]
     #[clap(long)]
     pub legacy_bin: Option<String>,
-    #[clap(long)]
+    #[clap(long, from_global)]
     pub home: Option<String>,
     #[clap(long)]
     pub freeze_valset: bool,
@@ -194,15 +215,7 @@ impl StartCmd {
                 cmd.config = config;
             }
 
-            let home = cmd.home.map_or_else(
-                || {
-                    Node::home(
-                        &cmd.config.chain_id
-                            .expect("Expected a chain-id or home directory to be set"),
-                    )
-                },
-                |home| PathBuf::from_str(&home).unwrap(),
-            );
+            let home = home_dir(cmd.home.as_ref(), cmd.config.chain_id.as_ref());
 
             if cmd.freeze_valset {
                 std::env::set_var("ORGA_STATIC_VALSET", "true");
@@ -450,19 +463,16 @@ impl StartCmd {
     }
 }
 
-fn configure_node<P, F>(cfg_path: &P, configure: F)
-where
-    P: AsRef<std::path::Path>,
-    F: Fn(&mut toml_edit::Document),
-{
-    let data = std::fs::read_to_string(cfg_path).expect("Failed to read config.toml");
-
-    let mut toml = data
+fn parse_config(cfg_path: &impl AsRef<Path>) -> toml_edit::Document {
+    std::fs::read_to_string(cfg_path)
+        .expect("Failed to read config.toml")
         .parse::<toml_edit::Document>()
-        .expect("Failed to parse config.toml");
+        .expect("Failed to parse config.toml")
+}
 
+fn configure_node(cfg_path: &impl AsRef<Path>, configure: impl Fn(&mut toml_edit::Document)) {
+    let mut toml = parse_config(cfg_path);
     configure(&mut toml);
-
     std::fs::write(cfg_path, toml.to_string()).expect("Failed to write config.toml");
 }
 
@@ -1273,15 +1283,48 @@ async fn main() {
         std::process::exit(1);
     }));
 
-    let opts = Opts::parse();
+    let mut opts = Opts::parse();
 
-    // TODO: move relaxed url parsing into TendermintClient
-    let node = if !opts.node.starts_with("http") {
-        format!("http://{}", opts.node)
-    } else {
-        opts.node
+    if let Some(network) = opts.network {
+        let config = network.config();
+
+        if opts.chain_id.is_some() {
+            log::error!("Cannot specify both --chain-id and --network");
+            std::process::exit(1);
+        }
+
+        opts.chain_id = config.chain_id;
+    }
+
+    let node_url = match opts.node {
+        Some(node) => {
+            // TODO: move relaxed url parsing into TendermintClient
+            if !node.starts_with("http") {
+                format!("http://{}", node)
+            } else {
+                node
+            }
+        }
+        None => {
+            let port = if opts.home.is_some() || opts.chain_id.is_some() {
+                let home = home_dir(opts.home.as_ref(), opts.chain_id.as_ref());
+                if home.exists() {
+                    let cfg_path = home.join("tendermint/config/config.toml");
+                    let cfg = parse_config(&cfg_path);
+                    let laddr = cfg["rpc"]["laddr"].as_str().unwrap();
+                    let (_, port) = laddr.rsplit_once(':').unwrap();
+                    port.parse().unwrap()
+                } else {
+                    26657
+                }
+            } else {
+                26657
+            };
+            format!("http://localhost:{}", port)
+        }
     };
-    let client = TendermintClient::<nomic::app::App>::new(&node).unwrap();
+    debug!("Node RPC URL: {}", node_url);
+    let client = TendermintClient::<nomic::app::App>::new(&node_url).unwrap();
 
     if let Err(err) = opts.cmd.run(client).await {
         log::error!("{}", err);
