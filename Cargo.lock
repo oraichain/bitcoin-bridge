@@ -2264,7 +2264,8 @@ dependencies = [
  "js-sys",
  "log",
  "mutagen",
- "orga",
+ "nomic 4.2.1 (git+https://github.com/nomic-io/nomic?rev=f2a18776e0f16bb793df54a6dfc75eb4ff66f597)",
+ "orga 0.3.1 (git+https://github.com/nomic-io/orga.git?rev=52493d1b9b8216f9d16fd7b39c5f511a96fc3f9f)",
  "pretty_env_logger",
  "rand 0.8.5",
  "reqwest",
@@ -2273,6 +2274,42 @@ dependencies = [
  "serde_json",
  "sha2 0.10.6",
  "split-iter",
+ "tendermint-rpc",
+ "thiserror",
+ "tokio",
+ "toml 0.7.3",
+ "toml_edit 0.13.4",
+ "warp",
+]
+
+[[package]]
+name = "nomic"
+version = "4.2.1"
+source = "git+https://github.com/nomic-io/nomic?rev=f2a18776e0f16bb793df54a6dfc75eb4ff66f597#f2a18776e0f16bb793df54a6dfc75eb4ff66f597"
+dependencies = [
+ "base64 0.13.1",
+ "bech32 0.8.1",
+ "bitcoin 0.28.2",
+ "bitcoin-script",
+ "bitcoincore-rpc-async2",
+ "bitcoind",
+ "bytes",
+ "clap",
+ "csv",
+ "derive_more",
+ "ed 0.3.0 (git+https://github.com/nomic-io/ed?rev=9c0e206ffdb59dacb90f083e004e8080713e6ad8)",
+ "futures",
+ "hex",
+ "js-sys",
+ "log",
+ "orga 0.3.1 (git+https://github.com/nomic-io/orga.git?rev=a986059b5aaa2b783e8050b9f6bfb0ae4a59f718)",
+ "pretty_env_logger",
+ "rand 0.8.5",
+ "reqwest",
+ "serde",
+ "serde-big-array",
+ "serde_json",
+ "sha2 0.10.6",
  "tendermint-rpc",
  "thiserror",
  "tokio",
@@ -2440,7 +2477,65 @@ dependencies = [
  "nom",
  "num-rational",
  "num-traits",
- "orga-macros",
+ "orga-macros 0.3.1 (git+https://github.com/nomic-io/orga.git?rev=52493d1b9b8216f9d16fd7b39c5f511a96fc3f9f)",
+ "paste",
+ "prost",
+ "prost-types",
+ "reqwest",
+ "ripemd",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "secp256k1 0.22.2",
+ "seq-macro",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "sha2 0.10.6",
+ "sha3 0.10.6",
+ "tar",
+ "tendermint",
+ "tendermint-proto",
+ "tendermint-rpc",
+ "thiserror",
+ "tokio",
+ "toml_edit 0.2.1",
+ "tonic",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
+name = "orga"
+version = "0.3.1"
+source = "git+https://github.com/nomic-io/orga.git?rev=a986059b5aaa2b783e8050b9f6bfb0ae4a59f718#a986059b5aaa2b783e8050b9f6bfb0ae4a59f718"
+dependencies = [
+ "abci2",
+ "async-trait",
+ "base64 0.13.1",
+ "bech32 0.8.1",
+ "bincode",
+ "chrono",
+ "cosmrs",
+ "derive_more",
+ "ed 0.3.0 (git+https://github.com/nomic-io/ed?rev=9c0e206ffdb59dacb90f083e004e8080713e6ad8)",
+ "ed25519-dalek",
+ "flate2",
+ "futures-lite",
+ "hex",
+ "hex-literal",
+ "home",
+ "ibc",
+ "ibc-proto",
+ "ics23",
+ "is_executable",
+ "js-sys",
+ "log",
+ "merk",
+ "nom",
+ "num-rational",
+ "num-traits",
+ "orga-macros 0.3.1 (git+https://github.com/nomic-io/orga.git?rev=a986059b5aaa2b783e8050b9f6bfb0ae4a59f718)",
  "paste",
  "prost",
  "prost-types",
@@ -2472,6 +2567,20 @@ dependencies = [
 name = "orga-macros"
 version = "0.3.1"
 source = "git+https://github.com/nomic-io/orga.git?rev=52493d1b9b8216f9d16fd7b39c5f511a96fc3f9f#52493d1b9b8216f9d16fd7b39c5f511a96fc3f9f"
+dependencies = [
+ "darling 0.14.4",
+ "heck 0.3.3",
+ "proc-macro2",
+ "quote",
+ "regex",
+ "superstruct",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "orga-macros"
+version = "0.3.1"
+source = "git+https://github.com/nomic-io/orga.git?rev=a986059b5aaa2b783e8050b9f6bfb0ae4a59f718#a986059b5aaa2b783e8050b9f6bfb0ae4a59f718"
 dependencies = [
  "darling 0.14.4",
  "heck 0.3.3",

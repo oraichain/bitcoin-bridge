@@ -21,6 +21,7 @@ use nomic::app::{DepositCommitment, CONSENSUS_VERSION};
 use nomic::bitcoin::{relayer::Relayer, signer::Signer};
 use nomic::error::Result;
 use nomic::network::Network;
+use orga::merk::BackingStore;
 #[cfg(feature = "compat")]
 use orga::merk::MerkStore;
 use orga::prelude::*;
@@ -1315,6 +1316,49 @@ async fn main() {
         }
 
         opts.chain_id = config.chain_id;
+    } else if opts.home.is_none() && opts.chain_id.is_none() {
+        opts.network = Some(Network::Mainnet);
+        opts.chain_id = Network::Mainnet.config().chain_id;
+    }
+
+    let network_home = home_dir(opts.home.as_ref(), opts.chain_id.as_ref());
+    log::debug!("Network home directory: {}", network_home.display());
+    log::debug!(
+        "Binary consensus version: {}",
+        hex::encode([CONSENSUS_VERSION]),
+    );
+    if network_home.exists() {
+        let merk_path = network_home.join("merk");
+        let store = Store::new(BackingStore::Merk(Shared::new(
+            orga::merk::MerkStore::open_readonly(merk_path),
+        )));
+        let store_ver = orga::upgrade::load_version(store).unwrap();
+        log::debug!(
+            "Network consensus version: {}",
+            store_ver
+                .as_ref()
+                .map(hex::encode)
+                .unwrap_or_else(|| "None".to_string())
+        );
+
+        // TODO: remove network_version file check once all deployed versions
+        // have future-proof version entry in store
+        if store_ver.is_none() {
+            let ver_path = network_home.join("network_version");
+            if ver_path.exists() {}
+        }
+
+        let version_match = store_ver.is_some() && store_ver.unwrap() == vec![CONSENSUS_VERSION];
+        if !version_match {
+            let legacy_ver = nomic::nomic_legacy::app::CONSENSUS_VERSION;
+            log::debug!(
+                "Legacy binary consensus version: {}",
+                hex::encode([legacy_ver]),
+            );
+
+            // TODO: issue command to legacy binary
+            todo!()
+        }
     }
 
     let node_url = match opts.node {
@@ -1328,9 +1372,8 @@ async fn main() {
         }
         None => {
             let port = if opts.home.is_some() || opts.chain_id.is_some() {
-                let home = home_dir(opts.home.as_ref(), opts.chain_id.as_ref());
-                if home.exists() {
-                    let cfg_path = home.join("tendermint/config/config.toml");
+                if network_home.exists() {
+                    let cfg_path = network_home.join("tendermint/config/config.toml");
                     let cfg = parse_config(&cfg_path);
                     let laddr = cfg["rpc"]["laddr"].as_str().unwrap();
                     let (_, port) = laddr.rsplit_once(':').unwrap();

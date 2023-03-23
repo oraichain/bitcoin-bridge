@@ -36,6 +36,7 @@ log = "0.4.17"
 hex = "0.4.3"
 toml = { version = "0.7.2", features = ["parse"] }
 split-iter = "0.1.0"
+nomic-legacy = { package = "nomic", git = "https://github.com/nomic-io/nomic", rev = "f2a18776e0f16bb793df54a6dfc75eb4ff66f597", artifact = "bin", lib = true }
 
 [dev-dependencies]
 bitcoin_hashes = "0.10.0"

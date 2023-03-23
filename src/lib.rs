@@ -11,6 +11,7 @@ use orga::abci::TendermintClient;
 
 pub use orga;
 pub use thiserror;
+pub use nomic_legacy;
 
 pub mod airdrop;
 pub mod app;
