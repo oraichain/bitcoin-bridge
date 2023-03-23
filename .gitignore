@@ -1,9 +1,4 @@
-target
-**/target/
-merk.db/
-
-
-# Added by cargo
-
-/target
+**/target
 wasm/Cargo.lock
+.vscode
+
