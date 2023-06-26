@@ -21,14 +21,24 @@ pub enum Error {
     BitcoinRpc(#[from] bitcoincore_rpc_async::Error),
     #[error("{0}")]
     Header(String),
+    #[error("{0}")]
+    Ibc(String),
     #[error(transparent)]
     Orga(#[from] orga::Error),
+    #[error(transparent)]
+    Ed(#[from] ed::Error),
     #[error("{0}")]
     Relayer(String),
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error("Unknown Error")]
     Unknown,
+}
+
+impl From<Error> for orga::Error {
+    fn from(err: Error) -> Self {
+        orga::Error::App(err.to_string())
+    }
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

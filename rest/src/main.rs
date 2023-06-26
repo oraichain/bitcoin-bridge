@@ -1,9 +1,20 @@
 #[macro_use]
 extern crate rocket;
 
-use rocket::serde::json::{json, Value};
+use nomic::{
+    app::{InnerApp, Nom, CHAIN_ID},
+    app_client,
+    orga::{
+        coins::{Accounts, Address, Amount, Decimal, Staking},
+        plugins::*,
+        query::Query,
+    },
+};
 use rocket::response::status::BadRequest;
-use nomic::{app_client, app::{Nom, InnerApp, CHAIN_ID}, orga::{query::Query, coins::{Amount, Accounts, Address, Staking, Decimal}, plugins::*}};
+use rocket::serde::json::{json, Value};
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 use tendermint_rpc as tm;
 use tm::Client as _;
@@ -16,17 +27,26 @@ struct DeclareInfo {
     details: String,
 }
 
+lazy_static::lazy_static! {
+    static ref QUERY_CACHE: Arc<RwLock<HashMap<String, (u64, String)>>> = Arc::new(RwLock::new(HashMap::new()));
+}
+
 #[get("/cosmos/bank/v1beta1/balances/<address>")]
 async fn bank_balances(address: &str) -> Result<Value, BadRequest<String>> {
     let address: Address = address.parse().unwrap();
 
-    let balance: u64 = app_client().accounts.balance(address)
+    let balance: u64 = app_client()
+        .accounts
+        .balance(address)
         .await
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
         .into();
 
-    let btcbalance: u64 = app_client().bitcoin.accounts.balance(address)
+    let btcbalance: u64 = app_client()
+        .bitcoin
+        .accounts
+        .balance(address)
         .await
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
@@ -54,7 +74,9 @@ async fn bank_balances(address: &str) -> Result<Value, BadRequest<String>> {
 async fn bank_balances_2(address: &str) -> Result<Value, BadRequest<String>> {
     let address: Address = address.parse().unwrap();
 
-    let balance: u64 = app_client().accounts.balance(address)
+    let balance: u64 = app_client()
+        .accounts
+        .balance(address)
         .await
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
@@ -75,17 +97,17 @@ async fn bank_balances_2(address: &str) -> Result<Value, BadRequest<String>> {
 async fn auth_accounts(addr_str: &str) -> Result<Value, BadRequest<String>> {
     let address: Address = addr_str.parse().unwrap();
 
-    let balance: u64 = app_client().accounts.balance(address)
+    let balance: u64 = app_client()
+        .accounts
+        .balance(address)
         .await
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
         .into();
 
     type NonceQuery = <NoncePlugin<PayablePlugin<FeePlugin<Nom, InnerApp>>> as Query>::Query;
-    let mut nonce: u64 = app_client().query(
-            NonceQuery::Nonce(address),
-            |state| state.nonce(address),
-        )
+    let mut nonce: u64 = app_client()
+        .query(NonceQuery::Nonce(address), |state| state.nonce(address))
         .await
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
         .into();
@@ -109,7 +131,41 @@ async fn auth_accounts(addr_str: &str) -> Result<Value, BadRequest<String>> {
     }))
 }
 
-use serde::{Serialize, Deserialize};
+#[get("/cosmos/auth/v1beta1/accounts/<addr_str>")]
+async fn auth_accounts2(addr_str: &str) -> Result<Value, BadRequest<String>> {
+    let address: Address = addr_str.parse().unwrap();
+
+    let balance: u64 = app_client()
+        .accounts
+        .balance(address)
+        .await
+        .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
+        .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
+        .into();
+
+    type NonceQuery = <NoncePlugin<PayablePlugin<FeePlugin<Nom, InnerApp>>> as Query>::Query;
+    let mut nonce: u64 = app_client()
+        .query(NonceQuery::Nonce(address), |state| state.nonce(address))
+        .await
+        .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
+        .into();
+    nonce += 1;
+
+    Ok(json!({
+        "account": {
+          "@type": "/cosmos.auth.v1beta1.BaseAccount",
+          "address": addr_str,
+          "pub_key": {
+            "@type": "/cosmos.crypto.secp256k1.PubKey",
+            "key": "Atl2HeBoLMorGAUPTH0hXk2Sx72reuw8x2V1puqwV+jN"
+          },
+          "account_number": "0",
+          "sequence": nonce.to_string()
+        }
+    }))
+}
+
+use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 struct TxRequest {
     tx: serde_json::Value,
@@ -126,11 +182,11 @@ async fn txs(tx: &str) -> Result<Value, BadRequest<String>> {
         let tx: TxRequest = serde_json::from_str(tx).unwrap();
         serde_json::to_vec(&tx.tx).unwrap()
     } else {
-        base64::decode(tx)
-            .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
+        base64::decode(tx).map_err(|e| BadRequest(Some(format!("{:?}", e))))?
     };
-    
-    let res = client.broadcast_tx_commit(tx_bytes.into())
+
+    let res = client
+        .broadcast_tx_commit(tx_bytes.into())
         .await
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
 
@@ -170,14 +226,13 @@ async fn txs2(tx: &str) -> Result<Value, BadRequest<String>> {
 
     let tx_bytes = if let Some('{') = tx.chars().next() {
         let tx: TxRequest2 = serde_json::from_str(tx).unwrap();
-        base64::decode(tx.tx_bytes.as_str())
-            .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
+        base64::decode(tx.tx_bytes.as_str()).map_err(|e| BadRequest(Some(format!("{:?}", e))))?
     } else {
-        base64::decode(tx)
-            .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
+        base64::decode(tx).map_err(|e| BadRequest(Some(format!("{:?}", e))))?
     };
-    
-    let res = client.broadcast_tx_commit(tx_bytes.into())
+
+    let res = client
+        .broadcast_tx_commit(tx_bytes.into())
         .await
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
 
@@ -203,14 +258,33 @@ async fn txs2(tx: &str) -> Result<Value, BadRequest<String>> {
     }))
 }
 
+fn time_now() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::SystemTime::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as u64
+}
+
 #[get("/query/<query>")]
 async fn query(query: &str) -> Result<String, BadRequest<String>> {
-    dbg!(query);
+    let cache = QUERY_CACHE.clone();
+    let lock = cache.read_owned().await;
+    let cached_res = lock.get(query).map(|v| v.clone());
+    let cache_hit = cached_res.is_some();
+    drop(lock);
+
+    dbg!((&query, cache_hit));
+    let now = time_now();
+
+    // if let Some((time, res)) = cached_res {
+    //     if now - time < 15 {
+    //         return Ok(res.clone())
+    //     }
+    // }
 
     let client = tm::HttpClient::new("http://localhost:26657").unwrap();
 
-    let query_bytes = hex::decode(query)
-        .map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
+    let query_bytes = hex::decode(query).map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
 
     let res = client
         .abci_query(None, query_bytes, None, true)
@@ -222,19 +296,62 @@ async fn query(query: &str) -> Result<String, BadRequest<String>> {
         return Err(BadRequest(Some(msg)));
     }
 
-    Ok(base64::encode(res.value))
+    let res_b64 = base64::encode(res.value);
+
+    let cache = QUERY_CACHE.clone();
+    let mut lock = cache.write_owned().await;
+    lock.insert(query.to_string(), (now, res_b64.clone()));
+    drop(lock);
+
+    Ok(res_b64)
+}
+
+#[get("/cosmos/staking/v1beta1/delegations/<address>")]
+async fn staking_delegators_delegations(address: &str) -> Result<Value, BadRequest<String>> {
+    let address: Address = address.parse().unwrap();
+
+    let delegations = app_client()
+        .staking
+        .delegations(address)
+        .await
+        .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
+        .map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
+
+    let total_staked: u64 = delegations
+        .iter()
+        .map(|(_, d)| -> u64 { d.staked.into() })
+        .sum();
+
+    Ok(json!({ "delegation_responses": [
+        {
+            "delegation": {
+                "delegator_address": "",
+                "validator_address": "",
+                "shares": "0"
+            },
+            "balance": {
+                "denom": "unom",
+                "amount": total_staked.to_string(),
+            }
+          }
+    ], "pagination": { "next_key": null, "total": "0" } }))
 }
 
 #[get("/staking/delegators/<address>/delegations")]
 async fn staking_delegators_delegations_2(address: &str) -> Result<Value, BadRequest<String>> {
     let address: Address = address.parse().unwrap();
 
-    let delegations = app_client().staking.delegations(address)
+    let delegations = app_client()
+        .staking
+        .delegations(address)
         .await
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
 
-    let total_staked: u64 = delegations.iter().map(|(_, d)| -> u64 { d.staked.into() }).sum();
+    let total_staked: u64 = delegations
+        .iter()
+        .map(|(_, d)| -> u64 { d.staked.into() })
+        .sum();
 
     Ok(json!({ "height": "0", "result": [
         {
@@ -279,7 +396,6 @@ async fn distribution_delegatrs_rewards(address: &str) -> Value {
     //     .await
     //     .unwrap();
 
-
     // let reward = (delegations
     //     .iter()
     //     .map(|(_, d)| -> u64 { d.liquid.into() })
@@ -307,7 +423,6 @@ async fn distribution_delegatrs_rewards(address: &str) -> Value {
       } })
 }
 
-
 #[get("/distribution/delegators/<address>/rewards")]
 async fn distribution_delegatrs_rewards_2(address: &str) -> Value {
     // let address = address.parse().unwrap();
@@ -322,7 +437,6 @@ async fn distribution_delegatrs_rewards_2(address: &str) -> Value {
     //     )
     //     .await
     //     .unwrap();
-
 
     // let reward = (delegations
     //     .iter()
@@ -353,12 +467,17 @@ async fn distribution_delegatrs_rewards_2(address: &str) -> Value {
 
 #[get("/cosmos/mint/v1beta1/inflation")]
 async fn minting_inflation() -> Result<Value, BadRequest<String>> {
-    let validators = app_client().staking.all_validators()
+    let validators = app_client()
+        .staking
+        .all_validators()
         .await
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
 
-    let total_staked: u64 = validators.iter().map(|v| -> u64 { v.amount_staked.into() }).sum();
+    let total_staked: u64 = validators
+        .iter()
+        .map(|v| -> u64 { v.amount_staked.into() })
+        .sum();
     let total_staked = Amount::from(total_staked + 1);
     let yearly_inflation = Decimal::from(64_682_541_340_000);
     let apr = (yearly_inflation / Decimal::from(4) / Decimal::from(total_staked))
@@ -370,12 +489,17 @@ async fn minting_inflation() -> Result<Value, BadRequest<String>> {
 
 #[get("/minting/inflation")]
 async fn minting_inflation_2() -> Result<Value, BadRequest<String>> {
-    let validators = app_client().staking.all_validators()
+    let validators = app_client()
+        .staking
+        .all_validators()
         .await
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
 
-    let total_staked: u64 = validators.iter().map(|v| -> u64 { v.amount_staked.into() }).sum();
+    let total_staked: u64 = validators
+        .iter()
+        .map(|v| -> u64 { v.amount_staked.into() })
+        .sum();
     let total_staked = Amount::from(total_staked + 1);
     let yearly_inflation = Decimal::from(64_682_541_340_000);
     let apr = (yearly_inflation / Decimal::from(4) / Decimal::from(total_staked))
@@ -444,13 +568,18 @@ fn ibc_applications_transfer_params() -> Value {
 async fn staking_delegators_delegations(address: &str) -> Result<Value, BadRequest<String>> {
     let address: Address = address.parse().unwrap();
 
-    let delegations = app_client().staking.delegations(address)
+    let delegations = app_client()
+        .staking
+        .delegations(address)
         .await
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
 
-    let total_staked: u64 = delegations.iter().map(|(_, d)| -> u64 { d.staked.into() }).sum();
-    
+    let total_staked: u64 = delegations
+        .iter()
+        .map(|(_, d)| -> u64 { d.staked.into() })
+        .sum();
+
     let mut valarray = Vec::new();
 
     for (validator, delegation) in delegations {
@@ -467,7 +596,7 @@ async fn staking_delegators_delegations(address: &str) -> Result<Value, BadReque
         use nomic::app::Nom;
         use nomic::bitcoin::Nbtc;
         use nomic::orga::coins::Symbol;
-        
+
         let liquid_nom = delegation
             .liquid
             .iter()
@@ -481,40 +610,42 @@ async fn staking_delegators_delegations(address: &str) -> Result<Value, BadReque
             .unwrap_or(&(0, 0.into()))
             .1;
 
-            let valaddr = validator.to_string();
-            let staked = staked.to_string();
-            
-            let mut owned_string: String = "validator:".to_owned();
-            let borrowed_string: &str = &validator.to_string();
-            
-            owned_string.push_str(borrowed_string);
+        let valaddr = validator.to_string();
+        let staked = staked.to_string();
 
+        let mut owned_string: String = "validator:".to_owned();
+        let borrowed_string: &str = &validator.to_string();
 
-            let full_name = "John Doe";
-            let age_last_year = 42;
-            let  ranphone = 23456;
-            
-            let data = json!({
-                "_delegation": {
-                    "_delegator_address": &address.to_string(),
-                    "_validator_address": &validator.to_string(),
-                    "shares": staked.to_string()
-                },
-                "balance": {
-                    "_denom": "unom",
-                    "amount": staked.to_string()
-                }
-            });
+        owned_string.push_str(borrowed_string);
 
-            valarray.push(data); 
+        let full_name = "John Doe";
+        let age_last_year = 42;
+        let ranphone = 23456;
+
+        let data = json!({
+            "_delegation": {
+                "_delegator_address": &address.to_string(),
+                "_validator_address": &validator.to_string(),
+                "shares": staked.to_string()
+            },
+            "balance": {
+                "_denom": "unom",
+                "amount": staked.to_string()
+            }
+        });
+
+        valarray.push(data);
     }
-    Ok(json!({ "_delegation_responses": &valarray, "total_staked": total_staked.to_string(), "pagination": {"next_key": null, "total": "0"} }))
-
+    Ok(
+        json!({ "_delegation_responses": &valarray, "total_staked": total_staked.to_string(), "pagination": {"next_key": null, "total": "0"} }),
+    )
 }
 
 #[get("/cosmos/staking/v1beta1/validators")]
 async fn staking_validators() -> Result<Value, BadRequest<String>> {
-    let validators = app_client().staking.all_validators()
+    let validators = app_client()
+        .staking
+        .all_validators()
         .await
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
@@ -522,35 +653,33 @@ async fn staking_validators() -> Result<Value, BadRequest<String>> {
     let mut fullarray = Vec::new();
 
     for validator in validators {
-        let info: DeclareInfo =
-            serde_json::from_slice(validator.info.bytes.as_slice()).unwrap();
-            
-            let data = json!({
-                "active": validator.in_active_set.to_string(),
-                "operator_address": validator.address.to_string(),
-                "tokens": validator.amount_staked.to_string(),                
-                "jailed": validator.jailed.to_string(),                               
-                "min_self_delegation": validator.min_self_delegation.to_string(),
-                "description": {
-                    "moniker": info.moniker.to_string(),
-                    "identity": info.identity.to_string(),
-                    "website": info.website.to_string(),
-                    "details": info.details.to_string(),
-                },
-                "commission": {
-                    "commission_rates": {
-                        "rate": validator.commission.rate.to_string(),
-                        "max_rate": validator.commission.max.to_string(),
-                        "max_change_rate": validator.commission.max_change.to_string()
-                    }
-                },
-                "unbonding": validator.unbonding.to_string(),
-                "unbonding_time": validator.unbonding_start_seconds.to_string(),
-                "tombstoned": validator.tombstoned.to_string()                
-            });
+        let info: DeclareInfo = serde_json::from_slice(validator.info.bytes.as_slice()).unwrap();
 
-            serde_json::to_string_pretty(&fullarray.push(data));
+        let data = json!({
+            "active": validator.in_active_set.to_string(),
+            "operator_address": validator.address.to_string(),
+            "tokens": validator.amount_staked.to_string(),
+            "jailed": validator.jailed.to_string(),
+            "min_self_delegation": validator.min_self_delegation.to_string(),
+            "description": {
+                "moniker": info.moniker.to_string(),
+                "identity": info.identity.to_string(),
+                "website": info.website.to_string(),
+                "details": info.details.to_string(),
+            },
+            "commission": {
+                "commission_rates": {
+                    "rate": validator.commission.rate.to_string(),
+                    "max_rate": validator.commission.max.to_string(),
+                    "max_change_rate": validator.commission.max_change.to_string()
+                }
+            },
+            "unbonding": validator.unbonding.to_string(),
+            "unbonding_time": validator.unbonding_start_seconds.to_string(),
+            "tombstoned": validator.tombstoned.to_string()
+        });
 
+        serde_json::to_string_pretty(&fullarray.push(data));
     }
 
     Ok(json!({ "validators": fullarray }))
@@ -558,7 +687,9 @@ async fn staking_validators() -> Result<Value, BadRequest<String>> {
 
 #[get("/staking/validators")]
 async fn staking_validators2() -> Result<Value, BadRequest<String>> {
-    let validators = app_client().staking.all_validators()
+    let validators = app_client()
+        .staking
+        .all_validators()
         .await
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
@@ -566,43 +697,41 @@ async fn staking_validators2() -> Result<Value, BadRequest<String>> {
     let mut fullarray = Vec::new();
 
     for validator in validators {
-        let info: DeclareInfo =
-            serde_json::from_slice(validator.info.bytes.as_slice()).unwrap();
-            
-            let data = json!({
-                "operator_address": validator.address.to_string(),                
-                "tokens": validator.amount_staked.to_string(),                
-                "jailed": validator.jailed.to_string(),                               
-                "min_self_delegation": validator.min_self_delegation.to_string(),
-                "description": {
-                    "moniker": info.moniker.to_string(),
-                    "identity": info.identity.to_string(),
-                    "website": info.website.to_string(),
-                    "details": info.details.to_string(),
-                },
-                "commission": {
-                    "commission_rates": {
-                        "rate": validator.commission.rate.to_string(),
-                        "max_rate": validator.commission.max.to_string(),
-                        "max_change_rate": validator.commission.max_change.to_string()
-                    }
-                },
-                "unbonding": validator.unbonding.to_string(),
-                "unbonding_time": validator.unbonding_start_seconds.to_string(),
-                "tombstoned": validator.tombstoned.to_string()
-                
-            });
+        let info: DeclareInfo = serde_json::from_slice(validator.info.bytes.as_slice()).unwrap();
 
-            serde_json::to_string_pretty(&fullarray.push(data));
+        let data = json!({
+            "operator_address": validator.address.to_string(),
+            "tokens": validator.amount_staked.to_string(),
+            "jailed": validator.jailed.to_string(),
+            "min_self_delegation": validator.min_self_delegation.to_string(),
+            "description": {
+                "moniker": info.moniker.to_string(),
+                "identity": info.identity.to_string(),
+                "website": info.website.to_string(),
+                "details": info.details.to_string(),
+            },
+            "commission": {
+                "commission_rates": {
+                    "rate": validator.commission.rate.to_string(),
+                    "max_rate": validator.commission.max.to_string(),
+                    "max_change_rate": validator.commission.max_change.to_string()
+                }
+            },
+            "unbonding": validator.unbonding.to_string(),
+            "unbonding_time": validator.unbonding_start_seconds.to_string(),
+            "tombstoned": validator.tombstoned.to_string()
 
+        });
+
+        serde_json::to_string_pretty(&fullarray.push(data));
     }
 
     Ok(json!({ "validators": fullarray }))
 }
 
+use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::Header;
 use rocket::{Request, Response};
-use rocket::fairing::{Fairing, Info, Kind};
 
 pub struct CORS;
 
@@ -611,13 +740,16 @@ impl Fairing for CORS {
     fn info(&self) -> Info {
         Info {
             name: "Add CORS headers to responses",
-            kind: Kind::Response
+            kind: Kind::Response,
         }
     }
 
     async fn on_response<'r>(&self, request: &'r Request<'_>, response: &mut Response<'r>) {
         response.set_header(Header::new("Access-Control-Allow-Origin", "*"));
-        response.set_header(Header::new("Access-Control-Allow-Methods", "POST, GET, PATCH, OPTIONS"));
+        response.set_header(Header::new(
+            "Access-Control-Allow-Methods",
+            "POST, GET, PATCH, OPTIONS",
+        ));
         response.set_header(Header::new("Access-Control-Allow-Headers", "*"));
         response.set_header(Header::new("Access-Control-Allow-Credentials", "true"));
     }
@@ -625,27 +757,32 @@ impl Fairing for CORS {
 
 #[launch]
 fn rocket() -> _ {
-    rocket::build().attach(CORS).mount("/", routes![
-        bank_balances,
-        bank_balances_2,
-        auth_accounts,
-        txs,
-        txs2,
-        query,        
-        staking_delegators_unbonding_delegations,
-        staking_delegators_unbonding_delegations_2,
-        distribution_delegatrs_rewards,
-        distribution_delegatrs_rewards_2,
-        staking_delegations_2,
-        minting_inflation,
-        staking_pool, 
-        staking_pool_2,
-        bank_total,
-        ibc_apps_transfer_params,
-        ibc_applications_transfer_params,
-        bank_supply_unom,
-        staking_delegators_delegations,
-        staking_validators,
-        staking_validators2,
-    ])
+    rocket::build().attach(CORS).mount(
+        "/",
+        routes![
+            bank_balances,
+            bank_balances_2,
+            auth_accounts,
+            auth_accounts2,
+            txs,
+            txs2,
+            query,
+            staking_delegators_delegations,
+            staking_delegators_delegations_2,
+            staking_delegators_unbonding_delegations,
+            staking_delegators_unbonding_delegations_2,
+            distribution_delegatrs_rewards,
+            distribution_delegatrs_rewards_2,
+            staking_delegations_2,
+            minting_inflation,
+            staking_pool,
+            staking_pool_2,
+            bank_total,
+            ibc_apps_transfer_params,
+            ibc_applications_transfer_params,
+            bank_supply_unom,
+            staking_validators,
+            staking_validators2,
+        ],
+    )
 }

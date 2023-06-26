@@ -1,7 +1,7 @@
 use super::{
     adapter::Adapter,
     signatory::SignatorySet,
-    threshold_sig::{LengthVec, Signature, ThresholdSig},
+    threshold_sig::{Signature, ThresholdSig},
     ConsensusKey, Xpub,
 };
 use crate::error::{Error, Result};
@@ -9,16 +9,18 @@ use bitcoin::blockdata::transaction::EcdsaSighashType;
 use derive_more::{Deref, DerefMut};
 use orga::{
     call::Call,
-    client::Client,
-    coins::Address,
     collections::{map::ReadOnly, ChildMut, Deque, Map, Ref},
     context::GetContext,
-    encoding::{Decode, Encode},
+    encoding::{Decode, Encode, LengthVec},
+    migrate::MigrateFrom,
+    orga,
     plugins::Time,
     query::Query,
     state::State,
     Error as OrgaError, Result as OrgaResult,
 };
+use orga::{describe::Describe, store::Store};
+use serde::Serialize;
 use std::convert::TryFrom;
 
 pub const MIN_CHECKPOINT_INTERVAL: u64 = 60 * 5;
@@ -26,30 +28,36 @@ pub const MAX_CHECKPOINT_INTERVAL: u64 = 60 * 60 * 8;
 pub const MAX_INPUTS: u64 = 40;
 pub const MAX_OUTPUTS: u64 = 200;
 pub const FEE_RATE: u64 = 1;
+pub const MAX_AGE: u64 = 60 * 60 * 24 * 7 * 3;
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Default, Serialize)]
 pub enum CheckpointStatus {
+    #[default]
     Building,
     Signing,
     Complete,
 }
 
-impl Default for CheckpointStatus {
-    fn default() -> Self {
-        Self::Building
+impl MigrateFrom for CheckpointStatus {
+    fn migrate_from(other: Self) -> orga::Result<Self> {
+        Ok(other)
     }
 }
 
 // TODO: make it easy to derive State for simple types like this
 impl State for CheckpointStatus {
-    type Encoding = Self;
-
-    fn create(_: orga::store::Store, data: Self) -> OrgaResult<Self> {
-        Ok(data)
+    #[inline]
+    fn attach(&mut self, _: Store) -> OrgaResult<()> {
+        Ok(())
     }
 
-    fn flush(self) -> OrgaResult<Self> {
-        Ok(self)
+    #[inline]
+    fn flush<W: std::io::Write>(self, out: &mut W) -> OrgaResult<()> {
+        Ok(self.encode_into(out)?)
+    }
+
+    fn load(_store: Store, bytes: &mut &[u8]) -> OrgaResult<Self> {
+        Ok(Self::decode(bytes)?)
     }
 }
 
@@ -69,21 +77,27 @@ impl Call for CheckpointStatus {
     }
 }
 
-impl<U: Send + Clone> Client<U> for CheckpointStatus {
-    type Client = orga::client::PrimitiveClient<Self, U>;
-
-    fn create_client(parent: U) -> Self::Client {
-        orga::client::PrimitiveClient::new(parent)
+impl Describe for CheckpointStatus {
+    fn describe() -> orga::describe::Descriptor {
+        orga::describe::Builder::new::<Self>().build()
     }
 }
 
-#[derive(State, Call, Query, Client, Debug)]
+#[orga(skip(Client), version = 1)]
+#[derive(Debug)]
 pub struct Input {
     pub prevout: Adapter<bitcoin::OutPoint>,
     pub script_pubkey: Adapter<bitcoin::Script>,
     pub redeem_script: Adapter<bitcoin::Script>,
     pub sigset_index: u32,
-    pub dest: Address,
+    #[cfg(not(feature = "testnet"))]
+    #[orga(version(V0))]
+    pub dest: orga::coins::Address,
+    #[cfg(feature = "testnet")]
+    #[orga(version(V0))]
+    pub dest: LengthVec<u16, u8>,
+    #[orga(version(V1))]
+    pub dest: LengthVec<u16, u8>,
     pub amount: u64,
     pub est_witness_vsize: u64,
     pub sigs: ThresholdSig,
@@ -109,9 +123,28 @@ impl Input {
     }
 }
 
+impl MigrateFrom<InputV0> for InputV1 {
+    fn migrate_from(other: InputV0) -> OrgaResult<Self> {
+        Ok(Self {
+            prevout: other.prevout,
+            script_pubkey: other.script_pubkey,
+            redeem_script: other.redeem_script,
+            sigset_index: other.sigset_index,
+            #[cfg(not(feature = "testnet"))]
+            dest: other.dest.encode()?.try_into()?,
+            #[cfg(feature = "testnet")]
+            dest: other.dest,
+            amount: other.amount,
+            est_witness_vsize: other.est_witness_vsize,
+            sigs: other.sigs,
+        })
+    }
+}
+
 pub type Output = Adapter<bitcoin::TxOut>;
 
-#[derive(State, Call, Query, Client, Debug)]
+#[orga]
+#[derive(Debug)]
 pub struct Checkpoint {
     pub status: CheckpointStatus,
     pub inputs: Deque<Input>,
@@ -120,6 +153,7 @@ pub struct Checkpoint {
     pub sigset: SignatorySet,
 }
 
+#[orga]
 impl Checkpoint {
     pub fn create_time(&self) -> u64 {
         self.sigset.create_time()
@@ -153,6 +187,7 @@ impl Checkpoint {
         Ok((tx, est_vsize))
     }
 
+    #[query]
     pub fn get_tvl(&self) -> Result<u64> {
         let mut tvl = 0;
         for i in 0..self.inputs.len() {
@@ -165,10 +200,10 @@ impl Checkpoint {
     }
 }
 
-#[derive(State, Call, Query, Client)]
+#[orga]
 pub struct CheckpointQueue {
-    queue: Deque<Checkpoint>,
-    index: u32,
+    pub(super) queue: Deque<Checkpoint>,
+    pub(super) index: u32,
 }
 
 #[derive(Deref)]
@@ -176,12 +211,6 @@ pub struct CompletedCheckpoint<'a>(Ref<'a, Checkpoint>);
 
 #[derive(Deref, Debug)]
 pub struct SigningCheckpoint<'a>(Ref<'a, Checkpoint>);
-
-impl<'a, U: Clone> Client<U> for SigningCheckpoint<'a> {
-    type Client = ();
-
-    fn create_client(_: U) {}
-}
 
 impl<'a> Query for SigningCheckpoint<'a> {
     type Query = ();
@@ -191,8 +220,9 @@ impl<'a> Query for SigningCheckpoint<'a> {
     }
 }
 
+// #[orga]
 impl<'a> SigningCheckpoint<'a> {
-    #[query]
+    // #[query]
     pub fn to_sign(&self, xpub: Xpub) -> Result<Vec<([u8; 32], u32)>> {
         let secp = bitcoin::secp256k1::Secp256k1::verification_only();
 
@@ -287,28 +317,35 @@ pub struct BuildingCheckpoint<'a>(Ref<'a, Checkpoint>);
 #[derive(Deref, DerefMut)]
 pub struct BuildingCheckpointMut<'a>(ChildMut<'a, u64, Checkpoint>);
 
+type BuildingAdvanceRes = (
+    bitcoin::OutPoint,
+    u64,
+    Vec<ReadOnly<Input>>,
+    Vec<ReadOnly<Output>>,
+);
+
 impl<'a> BuildingCheckpointMut<'a> {
     pub fn push_input(
         &mut self,
         prevout: bitcoin::OutPoint,
         sigset: &SignatorySet,
-        dest: Address,
+        dest: &[u8],
         amount: u64,
     ) -> Result<u64> {
         let script_pubkey = sigset.output_script(dest)?;
         let redeem_script = sigset.redeem_script(dest)?;
 
-        // TODO: need a better way to initialize state types from values?
-        self.inputs.push_back((
-            Adapter::new(prevout),
-            Adapter::new(script_pubkey),
-            Adapter::new(redeem_script),
-            sigset.index(),
-            dest.into(),
+        let input = Input {
+            prevout: Adapter::new(prevout),
+            script_pubkey: Adapter::new(script_pubkey),
+            redeem_script: Adapter::new(redeem_script),
+            sigset_index: sigset.index(),
+            dest: dest.encode()?.try_into()?,
             amount,
-            sigset.est_witness_vsize(),
-            <ThresholdSig as State>::Encoding::default(),
-        ))?;
+            est_witness_vsize: sigset.est_witness_vsize(),
+            sigs: ThresholdSig::new(),
+        };
+        self.inputs.push_back(input)?;
 
         let inputs_len = self.inputs.len();
         let mut input = self.inputs.get_mut(inputs_len - 1)?.unwrap();
@@ -317,21 +354,14 @@ impl<'a> BuildingCheckpointMut<'a> {
         Ok(input.est_vsize())
     }
 
-    pub fn advance(
-        self,
-    ) -> Result<(
-        bitcoin::OutPoint,
-        u64,
-        Vec<ReadOnly<Input>>,
-        Vec<ReadOnly<Output>>,
-    )> {
+    pub fn advance(self) -> Result<BuildingAdvanceRes> {
         let mut checkpoint = self.0;
 
         checkpoint.status = CheckpointStatus::Signing;
 
         let reserve_out = bitcoin::TxOut {
             value: 0, // will be updated after counting ins/outs and fees
-            script_pubkey: checkpoint.sigset.output_script(Address::NULL)?,
+            script_pubkey: checkpoint.sigset.output_script(&[0u8])?, // TODO: double-check safety
         };
         checkpoint.outputs.push_front(Adapter::new(reserve_out))?;
 
@@ -398,7 +428,15 @@ impl<'a> BuildingCheckpointMut<'a> {
     }
 }
 
+#[orga]
 impl CheckpointQueue {
+    pub fn reset(&mut self) -> OrgaResult<()> {
+        self.index = 0;
+        super::clear_deque(&mut self.queue)?;
+
+        Ok(())
+    }
+
     #[query]
     pub fn get(&self, index: u32) -> Result<Ref<'_, Checkpoint>> {
         let index = self.get_deque_index(index)?;
@@ -419,8 +457,14 @@ impl CheckpointQueue {
         }
     }
 
+    // TODO: remove this attribute, not sure why clippy is complaining when is_empty is defined
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> Result<u32> {
         Ok(u32::try_from(self.queue.len())?)
+    }
+
+    pub fn is_empty(&self) -> Result<bool> {
+        Ok(self.len()? == 0)
     }
 
     #[query]
@@ -436,9 +480,11 @@ impl CheckpointQueue {
         let mut out = Vec::with_capacity(self.queue.len() as usize);
 
         for i in 0..self.queue.len() {
-            let index = self.index - (i as u32);
-            let checkpoint = self.queue.get(index as u64)?.unwrap();
-            out.push((index, checkpoint));
+            let checkpoint = self.queue.get(i)?.unwrap();
+            out.push((
+                (self.index + 1 - (self.queue.len() as u32 - i as u32)),
+                checkpoint,
+            ));
         }
 
         Ok(out)
@@ -521,6 +567,20 @@ impl CheckpointQueue {
         Ok(BuildingCheckpointMut(last))
     }
 
+    pub fn prune(&mut self) -> Result<()> {
+        let latest = self.building()?.create_time();
+
+        while let Some(oldest) = self.queue.front()? {
+            if latest - oldest.create_time() <= MAX_AGE {
+                break;
+            }
+
+            self.queue.pop_front()?;
+        }
+
+        Ok(())
+    }
+
     pub fn maybe_step(&mut self, sig_keys: &Map<ConsensusKey, Xpub>) -> Result<()> {
         #[cfg(not(feature = "full"))]
         unimplemented!();
@@ -544,12 +604,12 @@ impl CheckpointQueue {
                 if elapsed < MAX_CHECKPOINT_INTERVAL || self.index == 0 {
                     let building = self.building()?;
                     let has_pending_deposit = if self.index == 0 {
-                        building.inputs.len() > 0
+                        building.inputs.is_empty()
                     } else {
                         building.inputs.len() > 1
                     };
 
-                    let has_pending_withdrawal = building.outputs.len() > 0;
+                    let has_pending_withdrawal = building.outputs.is_empty();
 
                     if !has_pending_deposit && !has_pending_withdrawal {
                         return Ok(());
@@ -561,6 +621,8 @@ impl CheckpointQueue {
                 return Ok(());
             }
 
+            self.prune()?;
+
             if self.index > 0 {
                 let second = self.get_mut(self.index - 1)?;
                 let sigset = second.sigset.clone();
@@ -569,11 +631,16 @@ impl CheckpointQueue {
 
                 let mut building = self.building_mut()?;
 
-                building.push_input(reserve_outpoint, &sigset, Address::NULL, reserve_value)?;
+                building.push_input(
+                    reserve_outpoint,
+                    &sigset,
+                    &[0u8], // TODO: double-check safety
+                    reserve_value,
+                )?;
 
                 for input in excess_inputs {
                     let shares = input.sigs.shares()?;
-                    let data = input.into_inner().into();
+                    let data = input.into_inner();
                     building.inputs.push_back(data)?;
                     building
                         .inputs
@@ -618,11 +685,13 @@ impl CheckpointQueue {
             }
 
             self.index = index;
-            self.queue.push_back(Default::default())?;
-            let mut building = self.building_mut()?;
 
-            building.sigset = sigset;
+            self.queue.push_back(Checkpoint {
+                sigset,
+                ..Default::default()
+            })?;
 
+            let building = self.building_mut()?;
             Ok(Some(building))
         }
     }
@@ -657,6 +726,7 @@ impl CheckpointQueue {
             .to_sign(xpub)
     }
 
+    #[query]
     pub fn sigset(&self, index: u32) -> Result<SignatorySet> {
         Ok(self.get(index)?.sigset.clone())
     }

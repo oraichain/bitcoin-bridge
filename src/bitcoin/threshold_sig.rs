@@ -5,33 +5,57 @@ use bitcoin::secp256k1::{
     constants::{COMPACT_SIGNATURE_SIZE, MESSAGE_SIZE, PUBLIC_KEY_SIZE},
     ecdsa, PublicKey, Secp256k1,
 };
-use orga::call::Call;
-use orga::client::Client;
+use derive_more::{Deref, From};
 use orga::collections::{Map, Next};
-use orga::encoding::{Decode, Encode, Error as EdError, Result as EdResult, Terminated};
-use orga::query::Query;
+use orga::encoding::{Decode, Encode};
+use orga::macros::Describe;
+use orga::migrate::MigrateFrom;
+use orga::prelude::FieldCall;
+use orga::query::FieldQuery;
 use orga::state::State;
-use orga::{Error, Result};
+use orga::{orga, Error, Result};
+use serde::Serialize;
 
 pub type Message = [u8; MESSAGE_SIZE];
-pub type Signature = [u8; COMPACT_SIGNATURE_SIZE];
 
 #[derive(
-    Encode, Decode, State, Query, Call, Client, Clone, Debug, Copy, PartialEq, Eq, PartialOrd, Ord,
+    Encode, Decode, State, Debug, Clone, Deref, From, Copy, MigrateFrom, Serialize, Describe,
 )]
-pub struct Pubkey([u8; PUBLIC_KEY_SIZE]);
+pub struct Signature(#[serde(serialize_with = "<[_]>::serialize")] [u8; COMPACT_SIGNATURE_SIZE]);
+
+#[derive(
+    Encode,
+    Decode,
+    State,
+    FieldQuery,
+    FieldCall,
+    Clone,
+    Debug,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    MigrateFrom,
+    Serialize,
+    Describe,
+)]
+pub struct Pubkey {
+    #[serde(serialize_with = "<[_]>::serialize")]
+    bytes: [u8; PUBLIC_KEY_SIZE],
+}
 
 impl Next for Pubkey {
     fn next(&self) -> Option<Self> {
-        let mut output = self.clone();
-        for (i, value) in self.0.iter().enumerate().rev() {
+        let mut output = *self;
+        for (i, value) in self.bytes.iter().enumerate().rev() {
             match value.next() {
                 Some(new_value) => {
-                    output.0[i] = new_value;
+                    output.bytes[i] = new_value;
                     return Some(output);
                 }
                 None => {
-                    output.0[i] = 0;
+                    output.bytes[i] = 0;
                 }
             }
         }
@@ -41,29 +65,33 @@ impl Next for Pubkey {
 
 impl Default for Pubkey {
     fn default() -> Self {
-        Pubkey([0; PUBLIC_KEY_SIZE])
+        Pubkey {
+            bytes: [0; PUBLIC_KEY_SIZE],
+        }
     }
 }
 
 impl Pubkey {
     pub fn new(pubkey: [u8; PUBLIC_KEY_SIZE]) -> Self {
-        Pubkey(pubkey)
+        Pubkey { bytes: pubkey }
     }
 
     pub fn as_slice(&self) -> &[u8] {
-        &self.0
+        &self.bytes
     }
 }
 
 impl From<PublicKey> for Pubkey {
     fn from(pubkey: PublicKey) -> Self {
-        Pubkey(pubkey.serialize())
+        Pubkey {
+            bytes: pubkey.serialize(),
+        }
     }
 }
 
 // TODO: update for taproot-based design (musig rounds, fallback path)
 
-#[derive(State, Call, Client, Query)]
+#[orga]
 pub struct ThresholdSig {
     threshold: u64,
     signed: u64,
@@ -72,7 +100,13 @@ pub struct ThresholdSig {
     sigs: Map<Pubkey, Share>,
 }
 
+#[orga]
 impl ThresholdSig {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> u16 {
         self.len
     }
@@ -94,8 +128,7 @@ impl ThresholdSig {
                 Share {
                     power: signatory.voting_power,
                     sig: None,
-                }
-                .into(),
+                },
             )?;
 
             self.len += 1;
@@ -116,7 +149,7 @@ impl ThresholdSig {
             assert!(share.sig.is_none());
             total_vp += share.power;
             len += 1;
-            self.sigs.insert(pubkey, share.into())?;
+            self.sigs.insert(pubkey, share)?;
         }
 
         // TODO: get threshold ratio from somewhere else
@@ -140,10 +173,7 @@ impl ThresholdSig {
                     Err(e) => return Some(Err(e)),
                     Ok(entry) => entry,
                 };
-                share
-                    .sig
-                    .as_ref()
-                    .map(|sig| Ok((pubkey.clone(), sig.clone())))
+                share.sig.as_ref().map(|sig| Ok((*pubkey, *sig)))
             })
             .collect()
     }
@@ -152,7 +182,7 @@ impl ThresholdSig {
     pub fn shares(&self) -> Result<Vec<(Pubkey, Share)>> {
         self.sigs
             .iter()?
-            .map(|entry| entry.map(|(pubkey, share)| (pubkey.clone(), share.clone())))
+            .map(|entry| entry.map(|(pubkey, share)| (*pubkey, share.clone())))
             .collect()
     }
 
@@ -198,10 +228,10 @@ impl ThresholdSig {
         Ok(())
     }
 
-    pub fn verify(&self, pubkey: Pubkey, sig: Signature) -> Result<()> {
+    pub fn verify(&self, pubkey: Pubkey, sig: Signature) -> crate::error::Result<()> {
         // TODO: re-use secp context
         let secp = Secp256k1::verification_only();
-        let pubkey = PublicKey::from_slice(&pubkey.0)?;
+        let pubkey = PublicKey::from_slice(&pubkey.bytes)?;
         let msg = secp256k1::Message::from_slice(self.message.as_slice())?;
         let sig = ecdsa::Signature::from_compact(sig.as_slice())?;
 
@@ -213,7 +243,7 @@ impl ThresholdSig {
 
     // TODO: this shouldn't know so much about bitcoin-specific structure,
     // decouple by exposing a power-ordered iterator of Option<Signature>
-    pub fn to_witness(&self) -> Result<Vec<Vec<u8>>> {
+    pub fn to_witness(&self) -> crate::error::Result<Vec<Vec<u8>>> {
         if !self.done() {
             return Ok(vec![]);
         }
@@ -248,92 +278,9 @@ impl Debug for ThresholdSig {
     }
 }
 
-#[derive(State, Call, Client, Query, Clone)]
+#[orga]
+#[derive(Clone)]
 pub struct Share {
     power: u64,
     sig: Option<Signature>,
-}
-
-// TODO: move this into ed
-use derive_more::{Deref, DerefMut, Into};
-use std::convert::{TryFrom, TryInto};
-
-#[derive(Deref, DerefMut, Encode, Into, Default)]
-pub struct LengthVec<P, T>
-where
-    P: Encode + Terminated,
-    T: Encode + Terminated,
-{
-    len: P,
-
-    #[deref]
-    #[deref_mut]
-    #[into]
-    values: Vec<T>,
-}
-
-impl<P, T> LengthVec<P, T>
-where
-    P: Encode + Terminated,
-    T: Encode + Terminated,
-{
-    pub fn new(len: P, values: Vec<T>) -> Self {
-        LengthVec { len, values }
-    }
-}
-
-impl<P, T> State for LengthVec<P, T>
-where
-    P: Encode + Decode + Terminated + TryInto<usize> + Clone,
-    T: Encode + Decode + Terminated,
-{
-    type Encoding = Self;
-
-    fn create(_: orga::store::Store, data: Self::Encoding) -> Result<Self> {
-        Ok(data)
-    }
-
-    fn flush(self) -> Result<Self::Encoding> {
-        Ok(self)
-    }
-}
-
-impl<P, T> From<Vec<T>> for LengthVec<P, T>
-where
-    P: Encode + Terminated + TryFrom<usize>,
-    T: Encode + Terminated,
-    <P as TryFrom<usize>>::Error: std::fmt::Debug,
-{
-    fn from(values: Vec<T>) -> Self {
-        LengthVec::new(P::try_from(values.len()).unwrap(), values)
-    }
-}
-
-impl<P, T> Terminated for LengthVec<P, T>
-where
-    P: Encode + Terminated,
-    T: Encode + Terminated,
-{
-}
-
-impl<P, T> Decode for LengthVec<P, T>
-where
-    P: Encode + Decode + Terminated + TryInto<usize> + Clone,
-    T: Encode + Decode + Terminated,
-{
-    fn decode<R: std::io::Read>(mut input: R) -> EdResult<Self> {
-        let len = P::decode(&mut input)?;
-        let len_usize = len
-            .clone()
-            .try_into()
-            .map_err(|_| EdError::UnexpectedByte(80))?;
-
-        let mut values = Vec::with_capacity(len_usize);
-        for _ in 0..len_usize {
-            let value = T::decode(&mut input)?;
-            values.push(value);
-        }
-
-        Ok(LengthVec { len, values })
-    }
 }
