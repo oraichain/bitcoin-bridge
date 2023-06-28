@@ -2,8 +2,8 @@
 extern crate rocket;
 
 use nomic::{
-    app::{InnerApp, Nom, CHAIN_ID},
-    app_client,
+    app::{App, InnerApp, Nom, CHAIN_ID},
+    app_client_testnet,
     orga::{
         coins::{Accounts, Address, Amount, Decimal, Staking},
         plugins::*,
@@ -19,14 +19,6 @@ use tokio::sync::RwLock;
 use tendermint_rpc as tm;
 use tm::Client as _;
 
-#[derive(Debug, Serialize, Deserialize)]
-struct DeclareInfo {
-    moniker: String,
-    website: String,
-    identity: String,
-    details: String,
-}
-
 lazy_static::lazy_static! {
     static ref QUERY_CACHE: Arc<RwLock<HashMap<String, (u64, String)>>> = Arc::new(RwLock::new(HashMap::new()));
 }
@@ -35,20 +27,8 @@ lazy_static::lazy_static! {
 async fn bank_balances(address: &str) -> Result<Value, BadRequest<String>> {
     let address: Address = address.parse().unwrap();
 
-    let balance: u64 = app_client()
-        .accounts
-        .balance(address)
-        .await
-        .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
-        .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
-        .into();
-
-    let btcbalance: u64 = app_client()
-        .bitcoin
-        .accounts
-        .balance(address)
-        .await
-        .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
+    let balance: u64 = app_client_testnet()
+        .query(|app| app.accounts.balance(address))
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
         .into();
 
@@ -60,7 +40,7 @@ async fn bank_balances(address: &str) -> Result<Value, BadRequest<String>> {
             },
             {
                 "denom": "nsat",
-                "amount": btcbalance.to_string(),
+                "amount": balance.to_string(),
             }
         ],
         "pagination": {
@@ -74,11 +54,8 @@ async fn bank_balances(address: &str) -> Result<Value, BadRequest<String>> {
 async fn bank_balances_2(address: &str) -> Result<Value, BadRequest<String>> {
     let address: Address = address.parse().unwrap();
 
-    let balance: u64 = app_client()
-        .accounts
-        .balance(address)
-        .await
-        .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
+    let balance: u64 = app_client_testnet()
+        .query(|app| app.accounts.balance(address))
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
         .into();
 
@@ -97,18 +74,13 @@ async fn bank_balances_2(address: &str) -> Result<Value, BadRequest<String>> {
 async fn auth_accounts(addr_str: &str) -> Result<Value, BadRequest<String>> {
     let address: Address = addr_str.parse().unwrap();
 
-    let balance: u64 = app_client()
-        .accounts
-        .balance(address)
-        .await
-        .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
+    let balance: u64 = app_client_testnet()
+        .query(|app| app.accounts.balance(address))
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
         .into();
 
-    type NonceQuery = <NoncePlugin<PayablePlugin<FeePlugin<Nom, InnerApp>>> as Query>::Query;
-    let mut nonce: u64 = app_client()
-        .query(NonceQuery::Nonce(address), |state| state.nonce(address))
-        .await
+    let mut nonce: u64 = app_client_testnet()
+        .query_root(|app| app.inner.inner.borrow().inner.inner.inner.nonce(address))
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
         .into();
     nonce += 1;
@@ -135,18 +107,13 @@ async fn auth_accounts(addr_str: &str) -> Result<Value, BadRequest<String>> {
 async fn auth_accounts2(addr_str: &str) -> Result<Value, BadRequest<String>> {
     let address: Address = addr_str.parse().unwrap();
 
-    let balance: u64 = app_client()
-        .accounts
-        .balance(address)
-        .await
-        .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
+    let balance: u64 = app_client_testnet()
+        .query(|app| app.accounts.balance(address))
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
         .into();
 
-    type NonceQuery = <NoncePlugin<PayablePlugin<FeePlugin<Nom, InnerApp>>> as Query>::Query;
-    let mut nonce: u64 = app_client()
-        .query(NonceQuery::Nonce(address), |state| state.nonce(address))
-        .await
+    let mut nonce: u64 = app_client_testnet()
+        .query_root(|app| app.inner.inner.borrow().inner.inner.inner.nonce(address))
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
         .into();
     nonce += 1;
@@ -265,8 +232,8 @@ fn time_now() -> u64 {
         .as_secs() as u64
 }
 
-#[get("/query/<query>")]
-async fn query(query: &str) -> Result<String, BadRequest<String>> {
+#[get("/query/<query>?<height>")]
+async fn query(query: &str, height: Option<u32>) -> Result<String, BadRequest<String>> {
     let cache = QUERY_CACHE.clone();
     let lock = cache.read_owned().await;
     let cached_res = lock.get(query).map(|v| v.clone());
@@ -287,16 +254,19 @@ async fn query(query: &str) -> Result<String, BadRequest<String>> {
     let query_bytes = hex::decode(query).map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
 
     let res = client
-        .abci_query(None, query_bytes, None, true)
+        .abci_query(None, query_bytes, height.map(Into::into), true)
         .await
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
+
+    let res_height: u64 = res.height.into();
+    let res_height: u32 = res_height.try_into().unwrap();
 
     if let tendermint::abci::Code::Err(code) = res.code {
         let msg = format!("code {}: {}", code, res.log);
         return Err(BadRequest(Some(msg)));
     }
 
-    let res_b64 = base64::encode(res.value);
+    let res_b64 = base64::encode([res_height.to_be_bytes().to_vec(), res.value].concat());
 
     let cache = QUERY_CACHE.clone();
     let mut lock = cache.write_owned().await;
@@ -310,11 +280,8 @@ async fn query(query: &str) -> Result<String, BadRequest<String>> {
 async fn staking_delegators_delegations(address: &str) -> Result<Value, BadRequest<String>> {
     let address: Address = address.parse().unwrap();
 
-    let delegations = app_client()
-        .staking
-        .delegations(address)
-        .await
-        .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
+    let delegations = app_client_testnet()
+        .query(|app| app.staking.delegations(address))
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
 
     let total_staked: u64 = delegations
@@ -341,11 +308,8 @@ async fn staking_delegators_delegations(address: &str) -> Result<Value, BadReque
 async fn staking_delegators_delegations_2(address: &str) -> Result<Value, BadRequest<String>> {
     let address: Address = address.parse().unwrap();
 
-    let delegations = app_client()
-        .staking
-        .delegations(address)
-        .await
-        .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
+    let delegations = app_client_testnet()
+        .query(|app| app.staking.delegations(address))
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
 
     let total_staked: u64 = delegations
@@ -467,11 +431,8 @@ async fn distribution_delegatrs_rewards_2(address: &str) -> Value {
 
 #[get("/cosmos/mint/v1beta1/inflation")]
 async fn minting_inflation() -> Result<Value, BadRequest<String>> {
-    let validators = app_client()
-        .staking
-        .all_validators()
-        .await
-        .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
+    let validators = app_client_testnet()
+        .query(|app| app.staking.all_validators())
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
 
     let total_staked: u64 = validators
@@ -489,11 +450,8 @@ async fn minting_inflation() -> Result<Value, BadRequest<String>> {
 
 #[get("/minting/inflation")]
 async fn minting_inflation_2() -> Result<Value, BadRequest<String>> {
-    let validators = app_client()
-        .staking
-        .all_validators()
-        .await
-        .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
+    let validators = app_client_testnet()
+        .query(|app| app.staking.all_validators())
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
 
     let total_staked: u64 = validators
@@ -564,171 +522,6 @@ fn ibc_applications_transfer_params() -> Value {
     })
 }
 
-#[get("/cosmos/staking/v1beta1/delegations/<address>")]
-async fn staking_delegators_delegations(address: &str) -> Result<Value, BadRequest<String>> {
-    let address: Address = address.parse().unwrap();
-
-    let delegations = app_client()
-        .staking
-        .delegations(address)
-        .await
-        .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
-        .map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
-
-    let total_staked: u64 = delegations
-        .iter()
-        .map(|(_, d)| -> u64 { d.staked.into() })
-        .sum();
-
-    let mut valarray = Vec::new();
-
-    for (validator, delegation) in delegations {
-        let staked = delegation.staked;
-        let liquid: u64 = delegation
-            .liquid
-            .iter()
-            .map(|(_, amount)| -> u64 { (*amount).into() })
-            .sum();
-        if staked == 0 && liquid == 0 {
-            continue;
-        }
-
-        use nomic::app::Nom;
-        use nomic::bitcoin::Nbtc;
-        use nomic::orga::coins::Symbol;
-
-        let liquid_nom = delegation
-            .liquid
-            .iter()
-            .find(|(denom, _)| *denom == Nom::INDEX)
-            .unwrap()
-            .1;
-        let liquid_nbtc = delegation
-            .liquid
-            .iter()
-            .find(|(denom, _)| *denom == Nbtc::INDEX)
-            .unwrap_or(&(0, 0.into()))
-            .1;
-
-        let valaddr = validator.to_string();
-        let staked = staked.to_string();
-
-        let mut owned_string: String = "validator:".to_owned();
-        let borrowed_string: &str = &validator.to_string();
-
-        owned_string.push_str(borrowed_string);
-
-        let full_name = "John Doe";
-        let age_last_year = 42;
-        let ranphone = 23456;
-
-        let data = json!({
-            "_delegation": {
-                "_delegator_address": &address.to_string(),
-                "_validator_address": &validator.to_string(),
-                "shares": staked.to_string()
-            },
-            "balance": {
-                "_denom": "unom",
-                "amount": staked.to_string()
-            }
-        });
-
-        valarray.push(data);
-    }
-    Ok(
-        json!({ "_delegation_responses": &valarray, "total_staked": total_staked.to_string(), "pagination": {"next_key": null, "total": "0"} }),
-    )
-}
-
-#[get("/cosmos/staking/v1beta1/validators")]
-async fn staking_validators() -> Result<Value, BadRequest<String>> {
-    let validators = app_client()
-        .staking
-        .all_validators()
-        .await
-        .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
-        .map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
-
-    let mut fullarray = Vec::new();
-
-    for validator in validators {
-        let info: DeclareInfo = serde_json::from_slice(validator.info.bytes.as_slice()).unwrap();
-
-        let data = json!({
-            "active": validator.in_active_set.to_string(),
-            "operator_address": validator.address.to_string(),
-            "tokens": validator.amount_staked.to_string(),
-            "jailed": validator.jailed.to_string(),
-            "min_self_delegation": validator.min_self_delegation.to_string(),
-            "description": {
-                "moniker": info.moniker.to_string(),
-                "identity": info.identity.to_string(),
-                "website": info.website.to_string(),
-                "details": info.details.to_string(),
-            },
-            "commission": {
-                "commission_rates": {
-                    "rate": validator.commission.rate.to_string(),
-                    "max_rate": validator.commission.max.to_string(),
-                    "max_change_rate": validator.commission.max_change.to_string()
-                }
-            },
-            "unbonding": validator.unbonding.to_string(),
-            "unbonding_time": validator.unbonding_start_seconds.to_string(),
-            "tombstoned": validator.tombstoned.to_string()
-        });
-
-        serde_json::to_string_pretty(&fullarray.push(data));
-    }
-
-    Ok(json!({ "validators": fullarray }))
-}
-
-#[get("/staking/validators")]
-async fn staking_validators2() -> Result<Value, BadRequest<String>> {
-    let validators = app_client()
-        .staking
-        .all_validators()
-        .await
-        .map_err(|e| BadRequest(Some(format!("{:?}", e))))?
-        .map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
-
-    let mut fullarray = Vec::new();
-
-    for validator in validators {
-        let info: DeclareInfo = serde_json::from_slice(validator.info.bytes.as_slice()).unwrap();
-
-        let data = json!({
-            "operator_address": validator.address.to_string(),
-            "tokens": validator.amount_staked.to_string(),
-            "jailed": validator.jailed.to_string(),
-            "min_self_delegation": validator.min_self_delegation.to_string(),
-            "description": {
-                "moniker": info.moniker.to_string(),
-                "identity": info.identity.to_string(),
-                "website": info.website.to_string(),
-                "details": info.details.to_string(),
-            },
-            "commission": {
-                "commission_rates": {
-                    "rate": validator.commission.rate.to_string(),
-                    "max_rate": validator.commission.max.to_string(),
-                    "max_change_rate": validator.commission.max_change.to_string()
-                }
-            },
-            "unbonding": validator.unbonding.to_string(),
-            "unbonding_time": validator.unbonding_start_seconds.to_string(),
-            "tombstoned": validator.tombstoned.to_string()
-
-        });
-
-        serde_json::to_string_pretty(&fullarray.push(data));
-    }
-
-    Ok(json!({ "validators": fullarray }))
-}
-
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::Header;
 use rocket::{Request, Response};
@@ -768,7 +561,7 @@ fn rocket() -> _ {
             txs2,
             query,
             staking_delegators_delegations,
-            staking_delegators_delegations_2,
+            // staking_delegators_delegations_2,
             staking_delegators_unbonding_delegations,
             staking_delegators_unbonding_delegations_2,
             distribution_delegatrs_rewards,
@@ -781,8 +574,6 @@ fn rocket() -> _ {
             ibc_apps_transfer_params,
             ibc_applications_transfer_params,
             bank_supply_unom,
-            staking_validators,
-            staking_validators2,
         ],
     )
 }
