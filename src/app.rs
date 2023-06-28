@@ -1,4 +1,7 @@
 #![allow(clippy::too_many_arguments)]
+// TODO: remove after swtiching from "testnet" feature flag to orga channels
+#![allow(unused_variables)]
+#![allow(unused_imports)]
 
 use crate::airdrop::Airdrop;
 use crate::bitcoin::adapter::Adapter;
@@ -81,7 +84,7 @@ pub struct InnerApp {
 
 #[orga]
 impl InnerApp {
-    pub const CONSENSUS_VERSION: u8 = 0;
+    pub const CONSENSUS_VERSION: u8 = 1;
 
     #[call]
     pub fn deposit_rewards(&mut self) -> Result<()> {
