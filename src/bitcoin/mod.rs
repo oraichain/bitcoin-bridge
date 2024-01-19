@@ -5,7 +5,9 @@ use self::checkpoint::Input;
 use self::threshold_sig::Signature;
 use crate::app::Dest;
 use crate::bitcoin::checkpoint::BatchType;
-use crate::constants::{BTC_NATIVE_TOKEN_DENOM, MIN_DEPOSIT_AMOUNT, MIN_WITHDRAWAL_AMOUNT, TRANSFER_FEE};
+use crate::constants::{
+    BTC_NATIVE_TOKEN_DENOM, MIN_DEPOSIT_AMOUNT, MIN_WITHDRAWAL_AMOUNT, TRANSFER_FEE,
+};
 use crate::error::{Error, Result};
 use adapter::Adapter;
 use bitcoin::hashes::Hash;
@@ -221,14 +223,8 @@ impl Config {
     fn bitcoin() -> Self {
         Self {
             min_withdrawal_checkpoints: 4,
-            #[cfg(not(feature = "testnet"))]
             min_deposit_amount: MIN_DEPOSIT_AMOUNT,
-            #[cfg(not(feature = "testnet"))]
             min_withdrawal_amount: MIN_WITHDRAWAL_AMOUNT,
-            #[cfg(feature = "testnet")]
-            min_deposit_amount: 600,
-            #[cfg(feature = "testnet")]
-            min_withdrawal_amount: 600,
             max_withdrawal_amount: 64,
             max_withdrawal_script_length: 64,
             transfer_fee: TRANSFER_FEE,
