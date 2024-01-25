@@ -1887,6 +1887,7 @@ impl CheckpointQueue {
         should_allow_deposits: bool,
         timestamping_commitment: Vec<u8>,
     ) -> Result<bool> {
+        info!("in maybe step");
         if !self.should_push(sig_keys)? {
             return Ok(false);
         }
@@ -1994,6 +1995,7 @@ impl CheckpointQueue {
         // Do not push if there is a checkpoint in the `Signing` state. There
         // should only ever be at most one checkpoint in this state.
         if self.signing()?.is_some() {
+            info!("has signing state");
             return Ok(false);
         }
 
@@ -2003,6 +2005,12 @@ impl CheckpointQueue {
                 .ok_or_else(|| OrgaError::App("No time context".to_string()))?
                 .seconds as u64;
             let elapsed = now - self.building()?.create_time();
+            info!("elapsed: {:?}", elapsed);
+            info!(
+                "min checkpoint interval: {:?}",
+                self.config.min_checkpoint_interval
+            );
+            info!("self index: {}", self.index);
 
             // Do not push if the minimum checkpoint interval has not elapsed
             // since creating the current `Building` checkpoint.
@@ -2022,6 +2030,7 @@ impl CheckpointQueue {
                 } else {
                     checkpoint_tx.input.len() > 1
                 };
+                info!("has pending deposits: {}", has_pending_deposit);
 
                 let has_pending_withdrawal = !checkpoint_tx.output.is_empty();
                 let has_pending_transfers = building.pending.iter()?.next().transpose()?.is_some();
@@ -2045,6 +2054,7 @@ impl CheckpointQueue {
         // issue is simply with relayers failing to report the confirmation of the
         // checkpoint transactions.
         let unconfs = self.num_unconfirmed()?;
+        info!("unconfs checkpoints: {}", unconfs);
         if unconfs >= self.config.max_unconfirmed_checkpoints {
             return Ok(false);
         }
@@ -2063,6 +2073,8 @@ impl CheckpointQueue {
             "sig keys length in should push: {:?}",
             sigset.signatories.len()
         );
+
+        info!("possible vp: {:?}", sigset.possible_vp());
 
         // Do not push if there are no validators in the signatory set.
         if sigset.possible_vp() == 0 {
