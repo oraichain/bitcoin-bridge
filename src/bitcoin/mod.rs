@@ -580,9 +580,9 @@ impl Bitcoin {
         let checkpoint = self.checkpoints.get(sigset_index)?;
         let sigset = checkpoint.sigset.clone();
 
-        if now > sigset.deposit_timeout() {
-            return Err(OrgaError::App("Deposit timeout has expired".to_string()))?;
-        }
+        // if now > sigset.deposit_timeout() {
+        //     return Err(OrgaError::App("Deposit timeout has expired".to_string()))?;
+        // }
 
         let dest_bytes = dest.commitment_bytes()?;
         let expected_script =
@@ -619,9 +619,7 @@ impl Bitcoin {
 
         println!(
             "Relay deposit with output value: {}, input size: {}, checkpoint fee rate: {}",
-            output.value,
-            input_size,
-            checkpoint.fee_rate
+            output.value, input_size, checkpoint.fee_rate
         );
 
         let outpoint = (btc_tx.txid().into_inner(), btc_vout);
