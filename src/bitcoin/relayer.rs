@@ -1170,14 +1170,20 @@ impl WatchedScriptStore {
         let lines = BufReader::new(file).lines();
         for line in lines {
             let line = line?;
+            info!("line: {}", line);
             let items: Vec<_> = line.split(',').collect();
 
             let sigset_index: u32 = items[1]
                 .parse()
                 .map_err(|_| orga::Error::App("Could not parse sigset index".to_string()))?;
+            info!("sigset index: {}", sigset_index);
+            info!("sigsets: {:?}", sigsets);
             let sigset = match sigsets.get(&sigset_index) {
                 Some(sigset) => sigset,
-                None => continue,
+                None => {
+                    info!("Cannot find sigset");
+                    continue;
+                }
             };
             info!("sigset: {:?}", sigset);
 
