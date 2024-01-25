@@ -960,6 +960,15 @@ async fn get_script_pubkey(address: String) -> Result<Value, BadRequest<String>>
     Ok(json!(base64_script_pubkey))
 }
 
+#[get("/bitcoin/signatory_length")]
+async fn get_signatory_length() -> Result<Value, BadRequest<String>> {
+    let signatories: usize = app_client()
+        .query(|app: InnerApp| Ok(app.bitcoin.signatory_keys.map().iter().unwrap().count()))
+        .await
+        .map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
+    Ok(json!(signatories))
+}
+
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::Header;
 use rocket::{Request, Response};
@@ -1022,7 +1031,8 @@ fn rocket() -> _ {
             bitcoin_checkpoint_size,
             bitcoin_last_checkpoint_size,
             bitcoin_checkpoint_size_with_index,
-            get_script_pubkey
+            get_script_pubkey,
+            get_signatory_length
         ],
     )
 }

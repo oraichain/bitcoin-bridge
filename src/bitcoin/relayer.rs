@@ -1090,6 +1090,7 @@ impl WatchedScripts {
             }
 
             for dest in dests {
+                info!("preparing to remove dest: {:?}", dest);
                 let script = self.derive_script(dest, sigset, SIGSET_THRESHOLD)?; // TODO: get threshold from state
                 self.scripts.remove(&script);
             }
@@ -1155,6 +1156,11 @@ impl WatchedScriptStore {
         app_client(app_client_addr)
             .query(|app: InnerApp| {
                 for (index, checkpoint) in app.bitcoin.checkpoints.all()? {
+                    info!(
+                        "inserted sigset with length {} and checkpoint index {}",
+                        checkpoint.sigset.len(),
+                        index
+                    );
                     sigsets.insert(index, checkpoint.sigset.clone());
                 }
                 Ok(())
@@ -1173,9 +1179,10 @@ impl WatchedScriptStore {
                 Some(sigset) => sigset,
                 None => continue,
             };
+            info!("sigset: {:?}", sigset);
 
             let dest = Dest::from_base64(items[0])?;
-
+            info!("dest: {:?}", dest);
             scripts.insert(dest, sigset)?;
         }
 

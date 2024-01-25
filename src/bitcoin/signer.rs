@@ -245,10 +245,10 @@ where
     /// change the signatory key after submitting one).
     async fn maybe_submit_xpub(&mut self, xpub: &ExtendedPubKey) -> Result<()> {
         let cons_key = (self.app_client)()
-            .query(|app| app.staking.consensus_key(self.op_addr))
+            .query(|app: InnerApp| app.staking.consensus_key(self.op_addr))
             .await?;
         let onchain_xpub = (self.app_client)()
-            .query(|app| Ok(app.bitcoin.signatory_keys.get(cons_key)?))
+            .query(|app: InnerApp| Ok(app.bitcoin.signatory_keys.get(cons_key)?))
             .await?;
 
         match onchain_xpub {
@@ -257,7 +257,10 @@ where
                 "Local xpub does not match xpub found on chain".to_string(),
             )
             .into()),
-            Some(_) => Ok(()),
+            Some(onchain_xpub) => {
+                info!("onchain xpub: {:?}", onchain_xpub);
+                Ok(())
+            }
         }
     }
 
