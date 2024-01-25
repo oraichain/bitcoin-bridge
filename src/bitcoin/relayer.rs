@@ -689,7 +689,7 @@ impl Relayer {
             self.scripts.as_mut().unwrap().insert(addr, &sigset)?;
         }
 
-        self.scripts.as_mut().unwrap().scripts.remove_expired()?;
+        // self.scripts.as_mut().unwrap().scripts.remove_expired()?;
 
         Ok(())
     }
