@@ -257,7 +257,7 @@ where
                 "Local xpub does not match xpub found on chain".to_string(),
             )
             .into()),
-            Some(onchain_xpub) => Ok(()),
+            Some(_) => Ok(()),
         }
     }
 
