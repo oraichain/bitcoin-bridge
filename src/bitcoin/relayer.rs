@@ -1085,6 +1085,11 @@ impl WatchedScripts {
         let now = time_now();
 
         for (_, (sigset, dests)) in self.sigsets.iter() {
+            info!(
+                "now: {} versus sigset timeout: {}",
+                now,
+                sigset.deposit_timeout()
+            );
             if now < sigset.deposit_timeout() {
                 break;
             }
@@ -1168,6 +1173,7 @@ impl WatchedScriptStore {
             .await?;
 
         let lines = BufReader::new(file).lines();
+        info!("lines: {:?}", lines);
         for line in lines {
             let line = line?;
             info!("line: {}", line);
