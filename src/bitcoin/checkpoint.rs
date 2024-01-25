@@ -1832,9 +1832,9 @@ impl CheckpointQueue {
                 break;
             }
 
-            if latest - oldest.create_time() <= self.config.max_age {
-                break;
-            }
+            // if latest - oldest.create_time() <= self.config.max_age {
+            //     break;
+            // }
 
             self.queue.pop_front()?;
         }
