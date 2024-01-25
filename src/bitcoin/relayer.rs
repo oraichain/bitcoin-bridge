@@ -1198,7 +1198,7 @@ impl WatchedScriptStore {
             scripts.insert(dest, sigset)?;
         }
 
-        scripts.remove_expired()?;
+        // scripts.remove_expired()?;
 
         info!("Loaded {} deposit addresses", scripts.len());
 
