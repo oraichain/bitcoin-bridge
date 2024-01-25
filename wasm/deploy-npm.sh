@@ -1,3 +1,5 @@
+set -e
+
 # build web
 wasm-pack build --target web
 cp pkg/nomic_wasm.js pkg/nomic_wasm.d.ts pkg/nomic_wasm_bg.wasm npm
