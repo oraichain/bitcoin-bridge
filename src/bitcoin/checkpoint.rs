@@ -2059,12 +2059,17 @@ impl CheckpointQueue {
         // Build the signatory set for the new checkpoint based on the current
         // validator set.
         let sigset = SignatorySet::from_validator_ctx(index, sig_keys)?;
+        info!(
+            "sig keys length in should push: {:?}",
+            sigset.signatories.len()
+        );
 
         // Do not push if there are no validators in the signatory set.
         if sigset.possible_vp() == 0 {
             return Ok(false);
         }
 
+        info!("has quorum in should_push: {:?}", sigset.has_quorum());
         // Do not push if the signatory set does not have a quorum.
         if !sigset.has_quorum() {
             return Ok(false);
@@ -2101,6 +2106,11 @@ impl CheckpointQueue {
             return Ok(None);
         }
 
+        info!(
+            "sig keys length in maybe push: {:?}",
+            sigset.signatories.len()
+        );
+        info!("has quorum in maybe push: {:?}", sigset.has_quorum());
         // Do not push if the signatory set does not have a quorum.
         if !sigset.has_quorum() {
             return Ok(None);
