@@ -689,7 +689,7 @@ impl Relayer {
             self.scripts.as_mut().unwrap().insert(addr, &sigset)?;
         }
 
-        // self.scripts.as_mut().unwrap().scripts.remove_expired()?;
+        self.scripts.as_mut().unwrap().scripts.remove_expired()?;
 
         Ok(())
     }
@@ -1173,17 +1173,13 @@ impl WatchedScriptStore {
             .await?;
 
         let lines = BufReader::new(file).lines();
-        info!("lines: {:?}", lines);
         for line in lines {
             let line = line?;
-            info!("line: {}", line);
             let items: Vec<_> = line.split(',').collect();
 
             let sigset_index: u32 = items[1]
                 .parse()
                 .map_err(|_| orga::Error::App("Could not parse sigset index".to_string()))?;
-            info!("sigset index: {}", sigset_index);
-            info!("sigsets: {:?}", sigsets);
             let sigset = match sigsets.get(&sigset_index) {
                 Some(sigset) => sigset,
                 None => {
@@ -1198,7 +1194,7 @@ impl WatchedScriptStore {
             scripts.insert(dest, sigset)?;
         }
 
-        // scripts.remove_expired()?;
+        scripts.remove_expired()?;
 
         info!("Loaded {} deposit addresses", scripts.len());
 
