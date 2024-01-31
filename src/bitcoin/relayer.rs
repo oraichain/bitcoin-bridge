@@ -164,6 +164,7 @@ impl Relayer {
                     Arc<Mutex<BTreeMap<_, _>>>,
                     Bytes,
                 )| {
+                    log::info!("Sigset Index: {}, Deposit Addr: {}, Send: {:?}, Sigsets: {:?} Body: {:?}", query.sigset_index, query.deposit_addr, send, sigsets, body);
                     let dest = Dest::decode(body.to_vec().as_slice())
                         .map_err(|e| warp::reject::custom(Error::from(e)))?;
 
@@ -696,6 +697,7 @@ impl Relayer {
             let unconfirmed_txid = tx.txid();
 
             let maybe_conf = self.scan_for_txid(unconfirmed_txid, 100).await?;
+            
             if let Some((height, block_hash)) = maybe_conf {
                 if height > btc_height - min_confs {
                     continue;

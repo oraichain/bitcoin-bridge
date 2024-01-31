@@ -1111,6 +1111,7 @@ impl RelayerCmd {
             .await
             .map_err(|e| orga::Error::App(e.to_string()))?;
 
+
         Ok(btc_client)
     }
 
@@ -1755,8 +1756,8 @@ impl SetRecoveryAddressCmd {
             .client()
             .with_wallet(wallet())
             .call(
-                |app| build_call!(app.app_noop()),
-                |app| {
+                |app: InnerApp| build_call!(app.app_noop()),
+                |app: InnerApp| {
                     build_call!(app
                         .bitcoin
                         .set_recovery_script(nomic::bitcoin::adapter::Adapter::new(script.clone())))
