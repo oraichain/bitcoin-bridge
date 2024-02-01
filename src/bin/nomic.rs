@@ -1756,8 +1756,8 @@ impl SetRecoveryAddressCmd {
             .client()
             .with_wallet(wallet())
             .call(
-                |app: InnerApp| build_call!(app.app_noop()),
-                |app: InnerApp| {
+                |app| build_call!(app.app_noop()),
+                |app| {
                     build_call!(app
                         .bitcoin
                         .set_recovery_script(nomic::bitcoin::adapter::Adapter::new(script.clone())))

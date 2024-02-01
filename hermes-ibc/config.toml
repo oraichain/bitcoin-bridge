@@ -66,7 +66,7 @@ trust_threshold = { numerator = '1', denominator = '3' }
 # list = [["transfer", "channel-170"],["transfer", "channel-174"]]
 
 [[chains]]
-id = 'oraibtc-testnet-2'
+id = 'oraibtc-subnet-1'
 rpc_addr = 'http://localhost:26657'
 event_source = { mode = 'pull' }
 grpc_addr = 'http://localhost:9001'

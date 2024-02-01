@@ -149,6 +149,8 @@ impl Relayer {
 
         let btc_client = self.btc_client.clone();
 
+        info!("Beep boop... Touch Create Address Server");
+        println!("Beep boop... Touch Create Address Server");
         // TODO: configurable listen address
         use bytes::Bytes;
         use warp::Filter;
@@ -164,7 +166,9 @@ impl Relayer {
                     Arc<Mutex<BTreeMap<_, _>>>,
                     Bytes,
                 )| {
-                    log::info!("Sigset Index: {}, Deposit Addr: {}, Send: {:?}, Sigsets: {:?} Body: {:?}", query.sigset_index, query.deposit_addr, send, sigsets, body);
+                    info!("Sigset Index: {}, Deposit Addr: {}, Send: {:?}, Sigsets: {:?} Body: {:?}", query.sigset_index, query.deposit_addr, send, sigsets, body);
+                    println!("Sigset Index: {}, Deposit Addr: {}, Send: {:?}, Sigsets: {:?} Body: {:?}", query.sigset_index, query.deposit_addr, send, sigsets, body);
+
                     let dest = Dest::decode(body.to_vec().as_slice())
                         .map_err(|e| warp::reject::custom(Error::from(e)))?;
 

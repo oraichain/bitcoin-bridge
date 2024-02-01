@@ -888,7 +888,7 @@ impl Checkpoint {
 
 /// Configuration parameters used in processing checkpoints.
 #[orga(skip(Default), version = 3)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Config {
     /// The minimum amount of time between the creation of checkpoints, in
     /// seconds.
@@ -1131,6 +1131,7 @@ impl Default for Config {
 /// broadcast to the Bitcoin network. The queue also maintains a counter
 /// (`confirmed_index`) to track which of these completed checkpoints have been
 /// confirmed in a Bitcoin block.
+#[derive(Debug)]
 #[orga(version = 2)]
 pub struct CheckpointQueue {
     /// The checkpoints in the queue, in order from oldest to newest. The last
