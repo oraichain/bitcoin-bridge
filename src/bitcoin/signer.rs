@@ -320,11 +320,13 @@ where
 
         let (status, timestamp) = self
             .client()
-            .query(|app| {
+            .query(|app: InnerApp| {
                 let cp = app.bitcoin.checkpoints.get(index)?;
                 Ok((cp.status, cp.create_time()))
             })
             .await?;
+
+        info!("Trying to sign {:?} - timestamp: {}", status, timestamp);
 
         CHECKPOINT_INDEX_GAUGE.set(index as i64);
         CHECKPOINT_TIMESTAMP_GAUGE.set(timestamp as i64);
@@ -335,7 +337,7 @@ where
 
         let to_sign = self
             .client()
-            .query(|app| Ok(app.bitcoin.checkpoints.get(index)?.to_sign(xpub.into())?))
+            .query(|app: InnerApp| Ok(app.bitcoin.checkpoints.get(index)?.to_sign(xpub.into())?))
             .await?;
 
         if to_sign.is_empty() {
@@ -349,8 +351,8 @@ where
 
         (self.app_client)()
             .call(
-                move |app| build_call!(app.bitcoin.sign(xpub.into(), sigs.clone(), index)),
-                |app| build_call!(app.app_noop()),
+                move |app: &InnerApp| build_call!(app.bitcoin.sign(xpub.into(), sigs.clone(), index)),
+                |app: &InnerApp| build_call!(app.app_noop()),
             )
             .await?;
 
@@ -398,7 +400,7 @@ where
     /// and react.
     async fn check_change_rates(&self) -> Result<()> {
         let checkpoint_index = (self.app_client)()
-            .query(|app| Ok(app.bitcoin.checkpoints.index()))
+            .query(|app: InnerApp| Ok(app.bitcoin.checkpoints.index()))
             .await?;
         if checkpoint_index < 100 {
             return Ok(());

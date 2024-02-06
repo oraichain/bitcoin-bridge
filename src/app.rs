@@ -975,6 +975,9 @@ impl ConvertSdkTx for InnerApp {
                 }
 
                 let msg = &tx.body.messages[0];
+
+                log::info!("Received msg: {:?}", msg);
+
                 if msg.type_url.as_str() == "/cosmos.bank.v1beta1.MsgSend" {
                     use orga::cosmrs::tx::Msg;
                     let msg =
@@ -1025,6 +1028,27 @@ impl ConvertSdkTx for InnerApp {
                         }
                         _ => return Err(Error::App("Unknown denom".to_string())),
                     }
+                }
+                
+                if msg.type_url.as_str() == "nomic/MsgSetRecoveryAddress" {
+                    let bitcoin_addr: String = String::from_utf8_lossy(&msg.value[2..]).to_string();
+                    log::info!("Hello there");
+                    log::info!("Recovery address: {:?}", bitcoin_addr
+                    .as_str());
+                    let recovery_addr: bitcoin::Address = bitcoin_addr
+                            .as_str()
+                            .parse()
+                            .map_err(|_| Error::App("Invalid recovery address".to_string()))?;
+
+                    let script =
+                            crate::bitcoin::adapter::Adapter::new(recovery_addr.script_pubkey());
+
+                    let funding_amt = MIN_FEE;
+                    let payer = build_call!(self.accounts.take_as_funding(funding_amt.into()));
+                    let payer = build_call!(self.app_noop());
+                    let paid = build_call!(self.bitcoin.set_recovery_script(script.clone()));
+
+                    return Ok(PaidCall { payer, paid });
                 }
 
                 Err(Error::App("Unsupported protobuf transaction".into()))

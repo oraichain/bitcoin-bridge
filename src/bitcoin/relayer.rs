@@ -121,6 +121,7 @@ impl Relayer {
 
         let index = Arc::new(Mutex::new(DepositIndex::new()));
         let (server, mut recv) = self.create_address_server(index.clone());
+        info!("Receiver Destination: {:?}", recv);
 
         let deposit_relay = async {
             loop {

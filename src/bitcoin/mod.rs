@@ -1075,11 +1075,12 @@ impl Bitcoin {
         // TODO: drain iter
         let pending = &mut self.checkpoints.last_completed_mut()?.pending;
         let keys = pending
-            .iter()?
-            .map(|entry| entry.map(|(dest, _)| dest.clone()).map_err(Error::from))
-            .collect::<Result<Vec<Dest>>>()?;
-        let mut dests = vec![];
-        for dest in keys {
+        .iter()?
+        .map(|entry| entry.map(|(dest, _)| dest.clone()).map_err(Error::from))
+        .collect::<Result<Vec<Dest>>>()?;
+    let mut dests = vec![];
+    for dest in keys {
+            log::info!("Taking pending from checkpoint with dest: {:?}", dest);
             let coins = pending.remove(dest.clone())?.unwrap().into_inner();
             dests.push((dest, coins));
         }

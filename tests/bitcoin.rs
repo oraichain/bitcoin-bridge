@@ -195,7 +195,6 @@ fn client_provider() -> AppClient<InnerApp, InnerApp, HttpClient, Nom, DerivedKe
 
 #[tokio::test]
 #[serial]
-#[ignore]
 async fn bitcoin_test() {
     INIT.call_once(|| {
         pretty_env_logger::init();
@@ -516,7 +515,9 @@ async fn bitcoin_test() {
             })
             .await?;
 
+
         for txid in disbursal_txs.iter() {
+            println!("Existing txid for disbursal");
             let async_txid =
                 bitcoincore_rpc_async::bitcoin::hash_types::Txid::from_str(&txid.to_string())
                     .unwrap();
