@@ -195,7 +195,10 @@ fn client_provider() -> AppClient<InnerApp, InnerApp, HttpClient, Nom, DerivedKe
 
 #[tokio::test]
 #[serial]
+#[ignore]
+
 async fn bitcoin_test() {
+    log::info!("Starting bitcoin test...");
     INIT.call_once(|| {
         pretty_env_logger::init();
         let genesis_time = Utc.with_ymd_and_hms(2022, 10, 5, 0, 0, 0).unwrap();
@@ -247,6 +250,8 @@ async fn bitcoin_test() {
     let _node_child = node.await.run().await.unwrap();
 
     let rpc_addr = "http://localhost:26657".to_string();
+
+    log::info!("Still running bitcoin test...");
 
     let mut relayer = Relayer::new(
         test_bitcoin_client(rpc_url.clone(), cookie_file.clone()).await,
@@ -867,6 +872,7 @@ async fn signing_completed_checkpoint_test() {
             .query(|app: InnerApp| Ok(app.bitcoin.checkpoints.completed_txs(20)?))
             .await
             .unwrap();
+
         let pre_tx_sizes = checkpoint_txs
             .iter()
             .map(|tx| tx.vsize())

@@ -235,6 +235,7 @@ impl InnerApp {
 
     #[call]
     pub fn ibc_deliver(&mut self, messages: RawIbcTx) -> Result<()> {
+        log::info!("IBC DELIVER...");
         self.deduct_nbtc_fee(IBC_FEE_USATS.into())?;
         let incoming_transfers = self.ibc.deliver(messages)?;
 
@@ -244,6 +245,7 @@ impl InnerApp {
             }
             let memo: NbtcMemo = transfer.memo.parse().unwrap_or_default();
             if let NbtcMemo::Withdraw(script) = memo {
+                 log::info!("Withdrawing...");
                 let amount = transfer.amount;
                 let receiver: Address = transfer
                     .receiver
@@ -566,7 +568,7 @@ mod abci {
                 self.credit_transfer(dest, coins)?;
             }
 
-            let external_outputs = if self.bitcoin.should_push_checkpoint()? {
+            let external_outputs: Vec<TxOut> = if self.bitcoin.should_push_checkpoint()? {
                 self.cosmos
                     .build_outputs(&self.ibc, self.bitcoin.checkpoints.index)?
             } else {

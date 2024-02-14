@@ -465,6 +465,7 @@ impl Relayer {
                 .await?;
 
             for tx in disbursal_txs.iter() {
+                // log::info!("Existing disbursal transaction... {:?}", tx);
                 if relayed.contains(&tx.txid()) {
                     continue;
                 }

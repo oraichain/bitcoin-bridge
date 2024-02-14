@@ -1095,7 +1095,7 @@ impl Config {
             sigset_threshold: SIGSET_THRESHOLD,
             emergency_disbursal_min_tx_amt: 1000,
             #[cfg(feature = "testnet")]
-            emergency_disbursal_lock_time_interval: 60 * 60 * 24 * 7, // one week
+            emergency_disbursal_lock_time_interval: 60 * 60 * 8, // one week
             #[cfg(not(feature = "testnet"))]
             emergency_disbursal_lock_time_interval: 60 * 60 * 24 * 7 * 2, // two weeks
             emergency_disbursal_max_tx_size: 50_000,
@@ -1410,9 +1410,15 @@ impl<'a> BuildingCheckpointMut<'a> {
                 .batches
                 .get_mut(BatchType::IntermediateTx as u64)?
                 .unwrap();
+
+            log::info!("Before entering to intermediate tx batch...");
+
             if intermediate_tx_batch.is_empty() {
                 return Ok(());
             }
+
+            log::info!("Entering to intermediate tx batch...");
+
 
             use orga::context::Context;
             let time = Context::resolve::<Time>()

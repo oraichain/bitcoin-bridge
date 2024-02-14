@@ -1,16 +1,8 @@
 state_sync_rpc = [
-    "http://147.182.171.216:26667",
-    "http://147.182.171.216:26677",
-    "https://rpc.nomic-testnet.basementnodes.ca"
 ]
 tendermint_flags = [
-    "--p2p.seeds",
-    """
-        6a6c1af342ce45d550e30ddc187bbbb81167d9b8@147.182.171.216:26656,\
-    """,
 ]
 btc_relayer = [
-  "https://relayer.nomic-testnet.mappum.io:8443"
 ]
 
 legacy_version = "6.4"
@@ -18,7 +10,7 @@ legacy_version = "6.4"
 genesis = """
 {
   "genesis_time": "2022-10-05T00:00:00Z",
-  "chain_id": "nomic-testnet-4d",
+  "chain_id": "oraibtc-local-1",
   "initial_height": "0",
   "consensus_params": {
     "block": {

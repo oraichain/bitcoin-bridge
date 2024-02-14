@@ -18,6 +18,8 @@ fn main() {
         let version = std::env::var("NOMIC_LEGACY_VERSION");
         let rev = std::env::var("NOMIC_LEGACY_REV");
 
+        println!("rev: {:?} version: {:?}", rev, version);
+
         let rev = if let Ok(rev) = rev {
             rev
         } else {

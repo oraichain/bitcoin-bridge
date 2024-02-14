@@ -1280,7 +1280,7 @@ async fn validator_set(height: u32) -> Value {
 #[get("/cosmos/distribution/v1beta1/community_pool")]
 async fn community_pool() -> Value {
     let community_pool = app_client()
-        .query(|app| Ok(app.community_pool.amount))
+        .query(|app: InnerApp| Ok(app.community_pool.amount))
         .await
         .unwrap();
 
@@ -1308,7 +1308,11 @@ fn proposals() -> Value {
 #[get("/ibc/core/connection/v1/connections/<connection>")]
 async fn ibc_connection(connection: &str) -> Value {
     let connection = app_client()
-        .query(|app| app.ibc.ctx.query_connection(EofTerminatedString(IbcConnectionId::from_str(connection).unwrap())))
+        .query(|app| {
+            app.ibc.ctx.query_connection(EofTerminatedString(
+                IbcConnectionId::from_str(connection).unwrap(),
+            ))
+        })
         .await
         .unwrap()
         .unwrap();
@@ -1321,7 +1325,6 @@ async fn ibc_connection(connection: &str) -> Value {
         },
     })
 }
-
 
 #[get("/ibc/core/connection/v1/connections")]
 async fn ibc_connections() -> Value {
@@ -1340,6 +1343,18 @@ async fn ibc_connections() -> Value {
             "revision_number": "0",
             "revision_height": "0"
         },
+    })
+}
+
+#[get("/bitcoin/recently_value_locked")]
+async fn get_recently_value_locked() -> Value {
+    let value_locked = app_client()
+    .query(|app: InnerApp| Ok(app.bitcoin.value_locked().unwrap_or(0)))
+    .await
+    .unwrap();
+
+    json!({
+        "value": value_locked
     })
 }
 
@@ -1418,6 +1433,7 @@ fn rocket() -> _ {
             proposals,
             ibc_connection,
             ibc_connections,
+            get_recently_value_locked
         ],
     )
 }
