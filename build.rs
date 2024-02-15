@@ -83,7 +83,7 @@ fn main() {
         println!("Using shell: {}", shell);
 
         #[cfg(feature = "testnet")]
-        let default_features = "full,feat-ibc,testnet";
+        let default_features = "full,feat-ibc,testnet,devnet";
         #[cfg(not(feature = "testnet"))]
         let default_features = "full,feat-ibc";
 

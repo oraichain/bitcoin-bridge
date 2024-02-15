@@ -31,4 +31,3 @@ fi
 
 echo "cargo:rustc-env=NOMIC_LEGACY_BUILD_PATH=$NOMIC_LEGACY_PATH"
 echo "cargo:rustc-env=NOMIC_LEGACY_BUILD_VERSION=$($NOMIC_LEGACY_PATH --version)"
-echo "Author perfogic"

@@ -1095,7 +1095,7 @@ impl Config {
             sigset_threshold: SIGSET_THRESHOLD,
             emergency_disbursal_min_tx_amt: 1000,
             #[cfg(feature = "testnet")]
-            emergency_disbursal_lock_time_interval: 60 * 60 * 8, // one week
+            emergency_disbursal_lock_time_interval: 60 * 10, // one week
             #[cfg(not(feature = "testnet"))]
             emergency_disbursal_lock_time_interval: 60 * 60 * 24 * 7 * 2, // two weeks
             emergency_disbursal_max_tx_size: 50_000,
@@ -1516,7 +1516,7 @@ impl<'a> BuildingCheckpointMut<'a> {
                 .batches
                 .get_mut(BatchType::IntermediateTx as u64)?
                 .unwrap();
-            let mut intermediate_tx = intermediate_tx_batch.get_mut(0)?.unwrap();
+            let mut intermediate_tx: ChildMut<'_, u64, BitcoinTx> = intermediate_tx_batch.get_mut(0)?.unwrap();
             intermediate_tx.lock_time = lock_time;
             intermediate_tx.input.push_back(tx_in)?;
 
