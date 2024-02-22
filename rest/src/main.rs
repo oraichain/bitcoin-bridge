@@ -545,6 +545,29 @@ async fn bitcoin_value_locked() -> Value {
     })
 }
 
+#[get("/bitcoin/checkpoint/last_confirmed_index")]
+async fn bitcoin_last_confirmed_checkpoint() -> Result<Value, BadRequest<String>> {
+    let (last_conf_index, last_conf_cp): (u32, String) = app_client()
+        .query(|app: InnerApp| {
+            let conf_index = app.bitcoin.checkpoints.confirmed_index;
+            if let Some(conf_index) = conf_index {
+                let conf_cp = app.bitcoin.checkpoints.get(conf_index)?;
+                return Ok((
+                    conf_index,
+                    conf_cp.checkpoint_tx()?.txid().as_hash().to_string(),
+                ));
+            }
+            Ok((0, "".to_string()))
+        })
+        .await
+        .map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
+
+    Ok(json!({
+            "last_confirmed_index": last_conf_index,
+            "last_confirmed_cp_tx": last_conf_cp,
+    }))
+}
+
 #[get("/bitcoin/checkpoint_queue")]
 async fn bitcoin_checkpoint_queue() -> Result<Value, BadRequest<String>> {
     let checkpoint_queue: CheckpointQueue = app_client()
@@ -1214,7 +1237,8 @@ fn rocket() -> _ {
             proposals,
             bitcoin_value_locked,
             bitcoin_checkpoint_queue,
-            checkpoint_disbursal_txs
+            checkpoint_disbursal_txs,
+            bitcoin_last_confirmed_checkpoint
         ],
     )
 }
