@@ -4,14 +4,17 @@ extern crate rocket;
 use bitcoin::Address as BitcoinAddress;
 use chrono::{TimeZone, Utc};
 use nomic::{
-    app::{InnerApp, Nom},
+    app::{Dest, InnerApp, Nom},
     bitcoin::{
-        checkpoint::{CheckpointQueue, Config as CheckpointConfig},
+        checkpoint::{Checkpoint, CheckpointQueue, CheckpointStatus, Config as CheckpointConfig},
         Config, Nbtc,
     },
     orga::{
         client::{wallet::Unsigned, AppClient},
-        coins::{Address, Amount, Decimal, DelegationInfo, Staking, Symbol, ValidatorQueryInfo},
+        coins::{
+            Address, Amount, Coin, Decimal, DelegationInfo, Staking, Symbol, ValidatorQueryInfo,
+        },
+        collections::Map,
         encoding::EofTerminatedString,
         tendermint::client::HttpClient,
     },
@@ -20,9 +23,9 @@ use nomic::{
 
 use rocket::response::status::BadRequest;
 use rocket::serde::json::{json, Value};
+use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
-use std::collections::HashMap;
 use tokio::sync::RwLock;
 
 use tendermint_rpc as tm;
@@ -536,9 +539,9 @@ async fn bitcoin_config() -> Result<Value, BadRequest<String>> {
 #[get("/bitcoin/value_locked")]
 async fn bitcoin_value_locked() -> Value {
     let value_locked = app_client()
-    .query(|app: InnerApp| Ok(app.bitcoin.value_locked()?))
-    .await
-    .unwrap();
+        .query(|app: InnerApp| Ok(app.bitcoin.value_locked()?))
+        .await
+        .unwrap();
 
     json!({
         "value": value_locked
@@ -571,15 +574,14 @@ async fn bitcoin_last_confirmed_checkpoint() -> Result<Value, BadRequest<String>
 #[get("/bitcoin/checkpoint_queue")]
 async fn bitcoin_checkpoint_queue() -> Result<Value, BadRequest<String>> {
     let checkpoint_queue: CheckpointQueue = app_client()
-    .query(|app: InnerApp| Ok(app.bitcoin.checkpoints))
-    .await
-    .map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
+        .query(|app: InnerApp| Ok(app.bitcoin.checkpoints))
+        .await
+        .map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
 
     Ok(json!({
         "index": checkpoint_queue.index,
         "confirmed_index": checkpoint_queue.confirmed_index
     }))
-
 }
 
 #[get("/bitcoin/checkpoint/config")]
@@ -604,25 +606,48 @@ async fn checkpoint_disbursal_txs() -> Result<Value, BadRequest<String>> {
     }))
 }
 
-#[get("/bitcoin/checkpoint")]
-async fn bitcoin_latest_checkpoint() -> Result<Value, BadRequest<String>> {
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct CheckpointQuery {
+    /// The status of the checkpoint, either `Building`, `Signing`, or
+    /// `Complete`.
+    pub index: u32,
+    pub status: CheckpointStatus,
+    pub fee_rate: u64,
+    pub signed_at_btc_height: Option<u32>,
+    pub deposits_enabled: bool,
+}
+
+#[get("/bitcoin/checkpoints")]
+async fn bitcoin_checkpoints() -> Result<Value, BadRequest<String>> {
     let checkpoint_queue: CheckpointQueue = app_client()
         .query(|app: InnerApp| Ok(app.bitcoin.checkpoints))
         .await
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
 
     let index = checkpoint_queue.index;
-    let list_checkpoints = checkpoint_queue.all().unwrap();
+    let list_checkpoints = checkpoint_queue
+        .all()
+        .map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
     if list_checkpoints.len() == 0 {
         return Ok(json!({}));
     }
-    let current_checkpoint_ref = list_checkpoints.last().unwrap();
-    let current_checkpoint = &current_checkpoint_ref.1;
+    // let mut current_checkpoint: Checkpoint;
+    // let mut last_confirmed_ind = 0;
+    // for (index, checkpoint) in list_checkpoints {
+    //     let value = checkpoint.
+    // };
+    let checkpoints: Vec<CheckpointQuery> = list_checkpoints
+        .into_iter()
+        .map(|(index, cp)| CheckpointQuery {
+            index,
+            status: cp.status,
+            fee_rate: cp.fee_rate,
+            signed_at_btc_height: cp.signed_at_btc_height,
+            deposits_enabled: cp.deposits_enabled,
+        })
+        .collect::<Vec<CheckpointQuery>>();
     Ok(json!({
-        "index": index,
-        "confirmed_index": checkpoint_queue.confirmed_index,
-        "current_fee_rate": current_checkpoint.fee_rate,
-        "status": current_checkpoint.status
+        "checkpoints": checkpoints
     }))
 }
 
@@ -1225,7 +1250,7 @@ fn rocket() -> _ {
             bank_supply_unom,
             bitcoin_config,
             bitcoin_checkpoint_config,
-            bitcoin_latest_checkpoint,
+            bitcoin_checkpoints,
             staking_params,
             get_bitcoin_recovery_address,
             bitcoin_checkpoint_size,
