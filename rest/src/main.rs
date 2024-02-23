@@ -6,6 +6,7 @@ use chrono::{TimeZone, Utc};
 use nomic::{
     app::{Dest, InnerApp, Nom},
     bitcoin::{
+        adapter::Adapter,
         checkpoint::{Checkpoint, CheckpointQueue, CheckpointStatus, Config as CheckpointConfig},
         Config, Nbtc,
     },
@@ -596,13 +597,18 @@ async fn bitcoin_checkpoint_config() -> Result<Value, BadRequest<String>> {
 
 #[get("/bitcoin/checkpoint/disbursal_txs")]
 async fn checkpoint_disbursal_txs() -> Result<Value, BadRequest<String>> {
-    let data = app_client()
+    let data: Vec<Adapter<bitcoin::Transaction>> = app_client()
         .query(|app: InnerApp| Ok(app.bitcoin.checkpoints.emergency_disbursal_txs()?))
         .await
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
+    let txids = data
+        .iter()
+        .map(|data| data.txid().to_string())
+        .collect::<Vec<String>>();
 
     Ok(json!({
-        "data": data
+        "data": data,
+        "txids": txids
     }))
 }
 
