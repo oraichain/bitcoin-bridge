@@ -606,9 +606,17 @@ async fn checkpoint_disbursal_txs() -> Result<Value, BadRequest<String>> {
         .map(|data| data.txid().to_string())
         .collect::<Vec<String>>();
 
+    let mut script_outputs: Vec<(u64, String)> = vec![];
+    for tx in data.clone() {
+        for output in tx.output.clone() {
+            script_outputs.push((output.value, output.script_pubkey.to_string()));
+        }
+    }
+
     Ok(json!({
         "data": data,
-        "txids": txids
+        "txids": txids,
+        "script_outputs": script_outputs
     }))
 }
 
@@ -664,7 +672,7 @@ async fn bitcoin_checkpoints() -> Result<Value, BadRequest<String>> {
     }))
 }
 
-#[get("/bitcoin/checkpoints/unconfirmed_data")]
+#[get("/bitcoin/checkpoint/unconfirmed_data")]
 async fn bitcoin_checkpoint_unconfirmed_data() -> Result<Value, BadRequest<String>> {
     let (first_unconfirmed, num_unconfirmed, last_completed, last_completed_tx): (
         Option<u32>,
