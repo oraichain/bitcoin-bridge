@@ -693,6 +693,7 @@ impl Bitcoin {
                 "Bitcoin merkle proof does not match header".to_string(),
             ))?;
         }
+        info!("Touch here");
         if txids.len() != 1 {
             return Err(OrgaError::App(
                 "Bitcoin merkle proof contains an invalid number of txids".to_string(),
