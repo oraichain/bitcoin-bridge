@@ -666,6 +666,9 @@ impl Bitcoin {
     ) -> Result<()> {
         exempt_from_fee()?;
 
+        log::info!("Touch here 1");
+
+
         if let Some(conf_index) = self.checkpoints.confirmed_index {
             if cp_index <= conf_index {
                 return Err(OrgaError::App(
@@ -683,22 +686,30 @@ impl Bitcoin {
             return Err(OrgaError::App("Block is not sufficiently confirmed".to_string()).into());
         }
 
+        log::info!("Touch here 2");
+
+
         let mut txids = vec![];
         let mut block_indexes = vec![];
         let proof_merkle_root = btc_proof
             .extract_matches(&mut txids, &mut block_indexes)
             .map_err(|_| Error::BitcoinMerkleBlockError)?;
+
+            log::info!("Touch here 3");
+
         if proof_merkle_root != btc_header.merkle_root() {
             return Err(OrgaError::App(
                 "Bitcoin merkle proof does not match header".to_string(),
             ))?;
         }
-        log::info!("Touch here");
+        log::info!("Touch here 4");
         if txids.len() != 1 {
             return Err(OrgaError::App(
                 "Bitcoin merkle proof contains an invalid number of txids".to_string(),
             ))?;
         }
+
+
 
         let btc_tx = self.checkpoints.get(cp_index)?.checkpoint_tx()?;
         if txids[0] != btc_tx.txid() {
