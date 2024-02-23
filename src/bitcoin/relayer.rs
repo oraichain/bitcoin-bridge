@@ -595,12 +595,9 @@ impl Relayer {
                     }
                 };
 
-
             info!("[before] confirmed_index: {:?}, unconf_index: {unconf_index}, last_completed_index: {last_completed_index}", confirmed_index);
-
             let unconf_index = unconf_index.max(last_completed_index.saturating_sub(5));
             info!("[after] confirmed_index: {:?}, unconf_index: {unconf_index}, last_completed_index: {last_completed_index}", confirmed_index);
-
 
             if let Some(confirmed_index) = confirmed_index {
                 if confirmed_index == unconf_index {
@@ -621,6 +618,8 @@ impl Relayer {
             let unconfirmed_txid = tx.txid();
 
             let maybe_conf = self.scan_for_txid(unconfirmed_txid, 100).await?;
+
+            info!("[debug] Maybe conf: {:?}", maybe_conf);
             if let Some((height, block_hash)) = maybe_conf {
                 if height > btc_height - min_confs {
                     continue;
