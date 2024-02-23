@@ -610,7 +610,9 @@ async fn checkpoint_disbursal_txs() -> Result<Value, BadRequest<String>> {
 pub struct CheckpointQuery {
     /// The status of the checkpoint, either `Building`, `Signing`, or
     /// `Complete`.
-    pub index: u32,
+    pub create_time: u64,
+    pub checkpoint_tx: String,
+    pub reserved_output: u64,
     pub status: CheckpointStatus,
     pub fee_rate: u64,
     pub signed_at_btc_height: Option<u32>,
@@ -626,7 +628,7 @@ async fn bitcoin_checkpoints() -> Result<Value, BadRequest<String>> {
 
     let index = checkpoint_queue.index;
     let list_checkpoints = checkpoint_queue
-        .all()
+        .completed(100)
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
     if list_checkpoints.len() == 0 {
         return Ok(json!({}));
@@ -638,12 +640,17 @@ async fn bitcoin_checkpoints() -> Result<Value, BadRequest<String>> {
     // };
     let checkpoints: Vec<CheckpointQuery> = list_checkpoints
         .into_iter()
-        .map(|(index, cp)| CheckpointQuery {
-            index,
-            status: cp.status,
-            fee_rate: cp.fee_rate,
-            signed_at_btc_height: cp.signed_at_btc_height,
-            deposits_enabled: cp.deposits_enabled,
+        .map(|(cp)| {
+            let reserved_output = cp.reserve_output().unwrap().unwrap().value;
+            CheckpointQuery {
+                status: cp.status,
+                create_time: cp.create_time(),
+                checkpoint_tx: cp.checkpoint_tx().unwrap().txid().to_string(),
+                reserved_output: reserved_output,
+                fee_rate: cp.fee_rate,
+                signed_at_btc_height: cp.signed_at_btc_height,
+                deposits_enabled: cp.deposits_enabled,
+            }
         })
         .collect::<Vec<CheckpointQuery>>();
     Ok(json!({
