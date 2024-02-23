@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate rocket;
 
-use bitcoin::Address as BitcoinAddress;
+use bitcoin::{Address as BitcoinAddress, AddressType};
 use chrono::{TimeZone, Utc};
 use nomic::{
     app::{Dest, InnerApp, Nom},
@@ -606,13 +606,20 @@ async fn checkpoint_disbursal_txs() -> Result<Value, BadRequest<String>> {
         .map(|data| data.txid().to_string())
         .collect::<Vec<String>>();
 
-    let mut script_outputs: Vec<(u64, String)> = vec![];
+    let mut script_outputs: Vec<(u64, String, String)> = vec![];
     for tx in data.clone() {
         for output in tx.output.clone() {
             let address =
                 bitcoin::Address::from_script(&output.script_pubkey, bitcoin::Network::Bitcoin)
                     .unwrap();
-            script_outputs.push((output.value, address.to_string()));
+            let address_type = address.address_type();
+            let address_type_str =
+                address_type.ok_or(BadRequest(Some("error getting address type".to_string())))?;
+            script_outputs.push((
+                output.value,
+                address.to_string(),
+                address_type_str.to_string(),
+            ));
         }
     }
 
