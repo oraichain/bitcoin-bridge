@@ -617,7 +617,8 @@ impl Relayer {
                     .await?;
             let unconfirmed_txid = tx.txid();
 
-            let maybe_conf = self.scan_for_txid(unconfirmed_txid, 100).await?;
+            // i will put a maximum height to crawl to reduce the latency when researching new checkpoint confirmation
+            let maybe_conf = self.scan_for_txid(unconfirmed_txid, 100, 10000).await?;
 
             info!("[debug] Maybe conf: {:?}", maybe_conf);
             if let Some((height, block_hash)) = maybe_conf {
@@ -653,6 +654,7 @@ impl Relayer {
         &mut self,
         txid: bitcoin::Txid,
         num_blocks: usize,
+        maximum_blocks: usize,
     ) -> Result<Option<(u32, BlockHash)>> {
         let mut tip = self.sidechain_block_hash().await?;
         let mut base_height = self
@@ -661,14 +663,11 @@ impl Relayer {
             .get_block_header_info(&tip)
             .await?
             .height;
-        #[cfg(not(feature = "testnet"))]
-        let lowest_bound_height = 800000;
-        #[cfg(not(feature = "testnet"))]
-        let lowest_bound_height = 2500000;
+        let initial_height = base_height;
 
         loop {
-            println!("Base height: {base_height}");
-            if (base_height < lowest_bound_height) {
+            println!("Base height: {base_height}, {initial_height}");
+            if (initial_height - base_height > maximum_blocks) {
                 break;
             }
             let blocks = self.last_n_blocks(num_blocks, tip).await?;
