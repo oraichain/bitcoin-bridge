@@ -654,22 +654,34 @@ impl Relayer {
         txid: bitcoin::Txid,
         num_blocks: usize,
     ) -> Result<Option<(u32, BlockHash)>> {
-        let tip = self.sidechain_block_hash().await?;
-        let base_height = self
+        let mut tip = self.sidechain_block_hash().await?;
+        let mut base_height = self
             .btc_client()
             .await
             .get_block_header_info(&tip)
             .await?
             .height;
-        let blocks = self.last_n_blocks(num_blocks, tip).await?;
+        #[cfg(not(feature = "testnet"))]
+        let lowest_bound_height = 800000;
+        #[cfg(not(feature = "testnet"))]
+        let lowest_bound_height = 2500000;
 
-        for (i, block) in blocks.into_iter().enumerate().rev() {
-            let height = (base_height - i) as u32;
-            for tx in block.txdata.iter() {
-                if tx.txid() == txid {
-                    return Ok(Some((height, block.block_hash())));
+        loop {
+            println!("Base height: {base_height}");
+            if (base_height < lowest_bound_height) {
+                break;
+            }
+            let blocks = self.last_n_blocks(num_blocks, tip).await?;
+            for (i, block) in blocks.clone().into_iter().enumerate().rev() {
+                let height = (base_height - i) as u32;
+                for tx in block.txdata.iter() {
+                    if tx.txid() == txid {
+                        return Ok(Some((height, block.block_hash())));
+                    }
                 }
             }
+            tip = blocks[blocks.len() - 1].header.block_hash();
+            base_height = self.btc_client().await.get_block_header_info(&tip).await?.height;
         }
 
         Ok(None)
