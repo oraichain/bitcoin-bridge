@@ -699,6 +699,7 @@ impl Bitcoin {
             ))?;
         }
 
+        log::info!("Touch here");
         let btc_tx = self.checkpoints.get(cp_index)?.checkpoint_tx()?;
         if txids[0] != btc_tx.txid() {
             return Err(OrgaError::App(
