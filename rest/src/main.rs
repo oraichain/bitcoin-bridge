@@ -658,6 +658,24 @@ async fn bitcoin_checkpoints() -> Result<Value, BadRequest<String>> {
     }))
 }
 
+#[get("/bitcoin/checkpoints/unconfirmed_data")]
+async fn bitcoin_checkpoint_unconfirmed_data() -> Result<Value, BadRequest<String>> {
+    let (first_unconfirmed, num_unconfirmed): (Option<u32>, u32) = app_client()
+        .query(|app: InnerApp| {
+            Ok((
+                app.bitcoin.checkpoints.first_unconfirmed_index()?,
+                app.bitcoin.checkpoints.num_unconfirmed()?,
+            ))
+        })
+        .await
+        .map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
+
+    Ok(json!({
+        "first_unconfirmed": first_unconfirmed,
+        "num_unconfirmed": num_unconfirmed
+    }))
+}
+
 #[get("/bitcoin/checkpoint/current_checkpoint_size")]
 async fn bitcoin_checkpoint_size() -> Result<Value, BadRequest<String>> {
     let config: usize = app_client()
@@ -1270,7 +1288,8 @@ fn rocket() -> _ {
             bitcoin_value_locked,
             bitcoin_checkpoint_queue,
             checkpoint_disbursal_txs,
-            bitcoin_last_confirmed_checkpoint
+            bitcoin_last_confirmed_checkpoint,
+            bitcoin_checkpoint_unconfirmed_data
         ],
     )
 }
