@@ -606,7 +606,7 @@ async fn checkpoint_disbursal_txs() -> Result<Value, BadRequest<String>> {
         .map(|data| data.txid().to_string())
         .collect::<Vec<String>>();
 
-    let mut script_outputs: Vec<(u64, String, String)> = vec![];
+    let mut script_outputs: Vec<(u64, String, String, String)> = vec![];
     for tx in data.clone() {
         for output in tx.output.clone() {
             let address =
@@ -619,6 +619,7 @@ async fn checkpoint_disbursal_txs() -> Result<Value, BadRequest<String>> {
                 output.value,
                 address.to_string(),
                 address_type_str.to_string(),
+                output.script_pubkey.asm(),
             ));
         }
     }
