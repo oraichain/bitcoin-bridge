@@ -574,6 +574,7 @@ async fn bitcoin_last_confirmed_checkpoint() -> Result<Value, BadRequest<String>
             let conf_index = app.bitcoin.checkpoints.confirmed_index;
             if let Some(conf_index) = conf_index {
                 let conf_cp = app.bitcoin.checkpoints.get(conf_index)?;
+                info!("Touch here pro");
                 return Ok((
                     conf_index,
                     conf_cp.checkpoint_tx()?.txid().as_hash().to_string(),
