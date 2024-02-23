@@ -610,7 +610,8 @@ async fn checkpoint_disbursal_txs() -> Result<Value, BadRequest<String>> {
     for tx in data.clone() {
         for output in tx.output.clone() {
             let address =
-                bitcoin::Address::from_script(&output.script_pubkey, bitcoin::Network::Bitcoin)?;
+                bitcoin::Address::from_script(&output.script_pubkey, bitcoin::Network::Bitcoin)
+                    .unwrap();
             script_outputs.push((output.value, address.to_string()));
         }
     }
