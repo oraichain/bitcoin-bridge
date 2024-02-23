@@ -609,7 +609,9 @@ async fn checkpoint_disbursal_txs() -> Result<Value, BadRequest<String>> {
     let mut script_outputs: Vec<(u64, String)> = vec![];
     for tx in data.clone() {
         for output in tx.output.clone() {
-            script_outputs.push((output.value, output.script_pubkey.to_string()));
+            let address =
+                bitcoin::Address::from_script(&output.script_pubkey, bitcoin::Network::Bitcoin)?;
+            script_outputs.push((output.value, address.to_string()));
         }
     }
 
