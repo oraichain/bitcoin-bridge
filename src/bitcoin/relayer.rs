@@ -617,7 +617,7 @@ impl Relayer {
                     .await?;
             let unconfirmed_txid = tx.txid();
 
-            let maybe_conf = self.scan_for_txid(unconfirmed_txid, 100).await?;
+            let maybe_conf = self.scan_for_txid(unconfirmed_txid, 5000).await?;
 
             info!("[debug] Maybe conf: {:?}", maybe_conf);
             if let Some((height, block_hash)) = maybe_conf {
