@@ -666,11 +666,22 @@ async fn bitcoin_checkpoints() -> Result<Value, BadRequest<String>> {
 
 #[get("/bitcoin/checkpoints/unconfirmed_data")]
 async fn bitcoin_checkpoint_unconfirmed_data() -> Result<Value, BadRequest<String>> {
-    let (first_unconfirmed, num_unconfirmed): (Option<u32>, u32) = app_client()
+    let (first_unconfirmed, num_unconfirmed, last_completed, last_completed_tx): (
+        Option<u32>,
+        u32,
+        u32,
+        String,
+    ) = app_client()
         .query(|app: InnerApp| {
             Ok((
                 app.bitcoin.checkpoints.first_unconfirmed_index()?,
                 app.bitcoin.checkpoints.num_unconfirmed()?,
+                app.bitcoin.checkpoints.last_completed_index()?,
+                app.bitcoin
+                    .checkpoints
+                    .last_completed_tx()?
+                    .txid()
+                    .to_string(),
             ))
         })
         .await
@@ -678,7 +689,9 @@ async fn bitcoin_checkpoint_unconfirmed_data() -> Result<Value, BadRequest<Strin
 
     Ok(json!({
         "first_unconfirmed": first_unconfirmed,
-        "num_unconfirmed": num_unconfirmed
+        "num_unconfirmed": num_unconfirmed,
+        "last_completed_index": last_completed,
+        "last_completex_tx": last_completed_tx,
     }))
 }
 
