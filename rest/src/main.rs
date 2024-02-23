@@ -603,16 +603,6 @@ async fn bitcoin_checkpoint_queue() -> Result<Value, BadRequest<String>> {
     }))
 }
 
-#[get("/bitcoin/checkpoint/config")]
-async fn bitcoin_checkpoint_config() -> Result<Value, BadRequest<String>> {
-    let config: CheckpointConfig = app_client()
-        .query(|app: InnerApp| Ok(app.bitcoin.checkpoints.config))
-        .await
-        .map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
-
-    Ok(json!(config))
-}
-
 #[get("/bitcoin/checkpoint/disbursal_txs")]
 async fn checkpoint_disbursal_txs() -> Result<Value, BadRequest<String>> {
     let data = app_client()
