@@ -595,7 +595,7 @@ impl Relayer {
                     }
                 };
             
-            info!("confirmed_index: {confirmed_index}, unconf_index: {unconf_index}, last_completed_index: {last_completed_index}");
+            info!("confirmed_index: {:?}, unconf_index: {unconf_index}, last_completed_index: {last_completed_index}", confirmed_index);
             let unconf_index = unconf_index.max(last_completed_index.saturating_sub(5));
 
             if let Some(confirmed_index) = confirmed_index {
