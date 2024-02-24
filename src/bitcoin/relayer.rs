@@ -481,11 +481,15 @@ impl Relayer {
                     Ok(_) => {
                         info!("Relayed emergency disbursal transaction: {}", tx.txid());
                     }
-                    Err(err) if err.to_string().contains("bad-txns-inputs-missingorspent") => {}
+                    Err(err) if err.to_string().contains("bad-txns-inputs-missingorspent") => {
+                        info!("Error on executing disbursal transaction");
+                    }
                     Err(err)
                         if err
                             .to_string()
-                            .contains("Transaction already in block chain") => {}
+                            .contains("Transaction already in block chain") => {
+                                info!("Transaction already existed");
+                            }
                     Err(err) => Err(err)?,
                 }
 
@@ -596,7 +600,9 @@ impl Relayer {
                 };
 
             info!("[before] confirmed_index: {:?}, unconf_index: {unconf_index}, last_completed_index: {last_completed_index}", confirmed_index);
-            let unconf_index = unconf_index.max(last_completed_index.saturating_sub(5));
+
+            // add minus 9 here to convert back to first checkpoint
+            let unconf_index = unconf_index.max(last_completed_index.saturating_sub(5)) - 9;
             info!("[after] confirmed_index: {:?}, unconf_index: {unconf_index}, last_completed_index: {last_completed_index}", confirmed_index);
 
             if let Some(confirmed_index) = confirmed_index {
@@ -610,15 +616,17 @@ impl Relayer {
                 app_client(&self.app_client_addr)
                     .query(|app: InnerApp| {
                         let cp = app.bitcoin.checkpoints.get(unconf_index)?;
+                        info!("Checkpoint: {:?}", cp);
                         let btc_height = app.bitcoin.headers.height()?;
                         let min_confs = app.bitcoin.config.min_checkpoint_confirmations;
                         Ok((cp.checkpoint_tx()?, btc_height, min_confs))
                     })
                     .await?;
             let unconfirmed_txid = tx.txid();
-
+            info!("Finding unconfirmed txid: {:?}", unconfirmed_txid);
+            
             // i will put a maximum height to crawl to reduce the latency when researching new checkpoint confirmation
-            let maybe_conf = self.scan_for_txid(unconfirmed_txid, 100, 20000).await?;
+            let maybe_conf = self.scan_for_txid(unconfirmed_txid, 100, 0000).await?;
 
             info!("[debug] Maybe conf: {:?}", maybe_conf);
             if let Some((height, block_hash)) = maybe_conf {
