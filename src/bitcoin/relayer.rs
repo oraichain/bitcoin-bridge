@@ -624,9 +624,9 @@ impl Relayer {
                     .await?;
             let unconfirmed_txid = tx.txid();
             info!("Finding unconfirmed txid: {:?}", unconfirmed_txid);
-            
+
             // i will put a maximum height to crawl to reduce the latency when researching new checkpoint confirmation
-            let maybe_conf = self.scan_for_txid(unconfirmed_txid, 100, 0000).await?;
+            let maybe_conf = self.scan_for_txid(unconfirmed_txid, 100,  20000).await?;
 
             info!("[debug] Maybe conf: {:?}", maybe_conf);
             if let Some((height, block_hash)) = maybe_conf {
