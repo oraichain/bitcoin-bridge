@@ -563,6 +563,7 @@ mod abci {
             for (dest, coins) in pending_nbtc_transfers {
                 self.credit_transfer(dest, coins)?;
             }
+            info!("before should push checkpoint");
 
             let external_outputs = if self.bitcoin.should_push_checkpoint()? {
                 self.cosmos
@@ -570,6 +571,7 @@ mod abci {
             } else {
                 vec![]
             };
+            info!("after should push checkpoint");
             let offline_signers = self
                 .bitcoin
                 .begin_block_step(external_outputs.into_iter().map(Ok), ctx.hash.clone())?;
@@ -1207,7 +1209,6 @@ impl ConvertSdkTx for InnerApp {
 
                     //     Ok(PaidCall { payer, paid })
                     // }
-
                     "nomic/MsgSetRecoveryAddress" => {
                         let msg = msg
                             .value
