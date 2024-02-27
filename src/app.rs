@@ -502,6 +502,7 @@ mod abci {
         QueryConnectionsResponse,
     };
 
+    use log::info;
     use orga::{
         abci::{
             messages::{self, ResponseQuery},
@@ -542,6 +543,7 @@ mod abci {
 
     impl BeginBlock for InnerApp {
         fn begin_block(&mut self, ctx: &BeginBlockCtx) -> Result<()> {
+            info!("in begin block");
             let now = ctx.header.time.as_ref().unwrap().seconds;
             self.upgrade.step(
                 &vec![Self::CONSENSUS_VERSION].try_into().unwrap(),
@@ -590,6 +592,7 @@ mod abci {
 
     impl EndBlock for InnerApp {
         fn end_block(&mut self, ctx: &EndBlockCtx) -> Result<()> {
+            info!("in end block");
             self.staking.end_block(ctx)
         }
     }
