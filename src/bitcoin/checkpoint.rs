@@ -1890,18 +1890,24 @@ impl CheckpointQueue {
         if !self.should_push(sig_keys)? {
             return Ok(false);
         }
+        info!("after should push");
 
         if self.maybe_push(sig_keys, should_allow_deposits)?.is_none() {
             return Ok(false);
         }
 
+        info!("after maybe push");
+
         self.prune()?;
+
+        info!("after prune");
 
         if self.index > 0 {
             let config = self.config();
             let second = self.get_mut(self.index - 1)?;
             let sigset = second.sigset.clone();
             let prev_fee_rate = second.fee_rate;
+            info!("before advance");
             let (reserve_outpoint, reserve_value, excess_inputs, excess_outputs) =
                 BuildingCheckpointMut(second).advance(
                     nbtc_accounts,
@@ -1911,12 +1917,15 @@ impl CheckpointQueue {
                     &config,
                 )?;
 
+            info!("after advance");
+
             // Adjust the fee rate for the next checkpoint based on whether past
             // checkpoints have been confirmed in greater or less than the
             // target number of Bitcoin blocks.
             let fee_rate = if let Some(first_unconf_index) = self.first_unconfirmed_index()? {
                 // There are unconfirmed checkpoints.
 
+                info!("after unconfirmed index");
                 let first_unconf = self.get(first_unconf_index)?;
                 let btc_blocks_since_first =
                     btc_height - first_unconf.signed_at_btc_height.unwrap_or(0);
@@ -1929,6 +1938,8 @@ impl CheckpointQueue {
                     btc_height - last_unconf.signed_at_btc_height.unwrap_or(0);
                 let block_was_mined = btc_blocks_since_last > 0;
 
+                info!("after last completed index");
+
                 if miners_excluded_cps && block_was_mined {
                     // Blocks were mined since a signed checkpoint, but it was
                     // not included.
@@ -1937,7 +1948,9 @@ impl CheckpointQueue {
                     prev_fee_rate
                 }
             } else {
+                info!("before last completed index");
                 let has_completed = self.last_completed_index().is_ok();
+                info!("after last completed index");
                 if has_completed {
                     // No unconfirmed checkpoints.
                     adjust_fee_rate(prev_fee_rate, false, &config)
@@ -1948,13 +1961,16 @@ impl CheckpointQueue {
                 }
             };
 
+            info!("before building mut");
             let mut building = self.building_mut()?;
             building.fee_rate = fee_rate;
             let mut building_checkpoint_batch = building
                 .batches
                 .get_mut(BatchType::Checkpoint as u64)?
                 .unwrap();
+            info!("after getting building checkpoint batch");
             let mut checkpoint_tx = building_checkpoint_batch.get_mut(0)?.unwrap();
+            info!("after getting checkpoint tx");
 
             // The new checkpoint tx's first input is the reserve output from
             // the previous checkpoint.
@@ -1979,6 +1995,8 @@ impl CheckpointQueue {
                 let data = output.into_inner();
                 checkpoint_tx.output.push_back(data)?;
             }
+
+            info!("after loop push back checkpoint tx");
         }
 
         Ok(true)
