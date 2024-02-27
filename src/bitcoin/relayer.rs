@@ -224,11 +224,12 @@ impl Relayer {
                 let sigset: RawSignatorySet = app_client(app_client_addr)
                     .query(|app: crate::app::InnerApp| {
                         let building = app.bitcoin.checkpoints.get(query.sigset_index)?;
+                        
                         let est_miner_fee = building.fee_rate
-                            * app.bitcoin.checkpoints.active_sigset()?.est_witness_vsize();
+                            * building.sigset.est_witness_vsize();
                         let deposits_enabled = building.deposits_enabled;
                         let sigset = RawSignatorySet::new(
-                            app.bitcoin.checkpoints.active_sigset()?,
+                            building.sigset.clone(),
                             BRIDGE_FEE_RATE,
                             est_miner_fee as f64 / 100_000_000.0,
                             deposits_enabled,
