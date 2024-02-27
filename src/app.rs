@@ -563,24 +563,24 @@ mod abci {
             for (dest, coins) in pending_nbtc_transfers {
                 self.credit_transfer(dest, coins)?;
             }
-            info!("before should push checkpoint");
+            info!("After processing pending bitcoin transfer");
 
-            let external_outputs = if self.bitcoin.should_push_checkpoint()? {
-                self.cosmos
-                    .build_outputs(&self.ibc, self.bitcoin.checkpoints.index)?
-            } else {
-                vec![]
-            };
-            info!("after should push checkpoint");
-            let offline_signers = self
-                .bitcoin
-                .begin_block_step(external_outputs.into_iter().map(Ok), ctx.hash.clone())?;
-            info!("after begin block step");
-            for cons_key in offline_signers {
-                let address = self.staking.address_by_consensus_key(cons_key)?.unwrap();
-                self.staking.punish_downtime(address)?;
-            }
-            info!("after punish downtime");
+            // let external_outputs = if self.bitcoin.should_push_checkpoint()? {
+            //     self.cosmos
+            //         .build_outputs(&self.ibc, self.bitcoin.checkpoints.index)?
+            // } else {
+            //     vec![]
+            // };
+            // info!("after should push checkpoint");
+            // let offline_signers = self
+            //     .bitcoin
+            //     .begin_block_step(external_outputs.into_iter().map(Ok), ctx.hash.clone())?;
+            // info!("after begin block step");
+            // for cons_key in offline_signers {
+            //     let address = self.staking.address_by_consensus_key(cons_key)?.unwrap();
+            //     self.staking.punish_downtime(address)?;
+            // }
+            // info!("after punish downtime");
 
             // let has_nbtc_rewards = self.bitcoin.reward_pool.amount > 0;
             // if self.reward_timer.tick(now) && has_stake && has_nbtc_rewards {
