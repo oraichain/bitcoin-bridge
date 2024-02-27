@@ -6,6 +6,7 @@ use nomic::{
     app::{InnerApp, Nom},
     bitcoin::{
         checkpoint::{CheckpointQueue, Config as CheckpointConfig},
+        signatory::SignatorySet,
         Config, Nbtc,
     },
     constants::MAIN_NATIVE_TOKEN_DENOM,
@@ -631,6 +632,17 @@ async fn bitcoin_checkpoint_size_with_index(index: u32) -> Result<Value, BadRequ
     }))
 }
 
+#[get("/bitcoin/sigset?<index>")]
+async fn bitcoin_sigset_with_index(index: u32) -> Result<Value, BadRequest<String>> {
+    let sigset: SignatorySet = app_client()
+        .query(|app: InnerApp| Ok(app.bitcoin.checkpoints.sigset(index)?))
+        .await
+        .map_err(|e| BadRequest(Some(format!("error: {:?}", e))))?;
+    Ok(json!({
+        "sigset": sigset,
+    }))
+}
+
 #[get("/cosmos/staking/v1beta1/delegators/<address>/unbonding_delegations")]
 async fn staking_delegators_unbonding_delegations(address: &str) -> Value {
     use chrono::{TimeZone, Utc};
@@ -1022,7 +1034,8 @@ fn rocket() -> _ {
             bitcoin_checkpoint_size,
             bitcoin_last_checkpoint_size,
             bitcoin_checkpoint_size_with_index,
-            get_script_pubkey
+            get_script_pubkey,
+            bitcoin_sigset_with_index
         ],
     )
 }
