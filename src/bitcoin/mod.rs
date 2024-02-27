@@ -928,6 +928,8 @@ impl Bitcoin {
         external_outputs: impl Iterator<Item = Result<bitcoin::TxOut>>,
         timestamping_commitment: Vec<u8>,
     ) -> Result<Vec<ConsensusKey>> {
+        use log::info;
+
         let has_completed_cp = if let Err(Error::Orga(OrgaError::App(err))) =
             self.checkpoints.last_completed_index()
         {
@@ -940,11 +942,15 @@ impl Bitcoin {
             true
         };
 
+        info!("after completed checkpoint check");
+
         let reached_capacity_limit = if has_completed_cp {
             self.value_locked()? >= self.config.capacity_limit
         } else {
             false
         };
+
+        info!("after value locked check");
 
         let pushed = self
             .checkpoints
@@ -960,6 +966,7 @@ impl Bitcoin {
             .map_err(|err| OrgaError::App(err.to_string()))?;
 
         // TODO: remove expired outpoints from processed_outpoints
+        info!("after maybe step");
 
         if pushed {
             self.offline_signers()
