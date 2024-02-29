@@ -2716,7 +2716,8 @@ async fn test_bitcoin_with_checkpoint_confirmation_relay() {
         test_bitcoin_client(rpc_url.clone(), cookie_file.clone()).await,
         rpc_addr.clone(),
     );
-    let checkpoint_confs = relayer.start_checkpoint_conf_relay(DEFAULT_MAX_SCAN_CHECKPOINTS_CONFIRMATIONS);
+    let checkpoint_confs =
+        relayer.start_checkpoint_conf_relay(DEFAULT_MAX_SCAN_CHECKPOINTS_CONFIRMATIONS);
 
     let mut relayer = Relayer::new(
         test_bitcoin_client(rpc_url.clone(), cookie_file.clone()).await,
