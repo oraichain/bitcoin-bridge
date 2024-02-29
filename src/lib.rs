@@ -4,6 +4,7 @@
 #![feature(specialization)]
 #![feature(type_alias_impl_trait)]
 #![feature(async_closure)]
+#![feature(string_leak)]
 #![feature(trait_alias)]
 
 #[cfg(feature = "full")]
