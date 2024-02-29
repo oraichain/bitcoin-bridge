@@ -383,13 +383,15 @@ pub async fn poll_for_completed_checkpoint(num_checkpoints: u32) {
 pub async fn poll_for_confirmed_checkpoint(checkpoint: u32) {
     info!("Scanning for confirmed checkpoints...");
     let mut confirmed_checkpoint: Option<u32> = app_client(DEFAULT_RPC)
-    .query(|app: InnerApp| Ok(app.bitcoin.checkpoints.confirmed_index))
-    .await.unwrap();
+        .query(|app: InnerApp| Ok(app.bitcoin.checkpoints.confirmed_index))
+        .await
+        .unwrap();
 
     while confirmed_checkpoint != Some(checkpoint) {
         confirmed_checkpoint = app_client(DEFAULT_RPC)
-        .query(|app: InnerApp| Ok(app.bitcoin.checkpoints.confirmed_index))
-        .await.unwrap();
+            .query(|app: InnerApp| Ok(app.bitcoin.checkpoints.confirmed_index))
+            .await
+            .unwrap();
         tokio::time::sleep(Duration::from_secs(1)).await;
     }
     println!("Checkpoint {checkpoint} is confirmed!");
