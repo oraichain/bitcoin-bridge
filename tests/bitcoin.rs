@@ -24,6 +24,7 @@ use nomic::bitcoin::relayer::Relayer;
 use nomic::bitcoin::signer::Signer;
 use nomic::bitcoin::threshold_sig::Pubkey;
 use nomic::bitcoin::Config as BitcoinConfig;
+use nomic::constants::DEFAULT_MAX_SCAN_CHECKPOINTS_CONFIRMATIONS;
 use nomic::error::{Error, Result};
 use nomic::utils::*;
 use nomic::utils::{
@@ -2715,7 +2716,7 @@ async fn test_bitcoin_with_checkpoint_confirmation_relay() {
         test_bitcoin_client(rpc_url.clone(), cookie_file.clone()).await,
         rpc_addr.clone(),
     );
-    let checkpoint_confs = relayer.start_checkpoint_conf_relay();
+    let checkpoint_confs = relayer.start_checkpoint_conf_relay(DEFAULT_MAX_SCAN_CHECKPOINTS_CONFIRMATIONS);
 
     let mut relayer = Relayer::new(
         test_bitcoin_client(rpc_url.clone(), cookie_file.clone()).await,

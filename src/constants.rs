@@ -19,3 +19,6 @@ pub const MIN_DEPOSIT_AMOUNT: u64 = 600; // in satoshis
 pub const MIN_WITHDRAWAL_AMOUNT: u64 = 600; // in satoshis
 
 pub const MAX_VALIDATORS: u64 = 30;
+
+// checkpoint constants
+pub const DEFAULT_MAX_SCAN_CHECKPOINTS_CONFIRMATIONS: usize = 3000; // this variable is used for relaying checkpoint
