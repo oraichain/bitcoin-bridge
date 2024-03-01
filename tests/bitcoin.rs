@@ -1529,7 +1529,12 @@ async fn recover_expired_deposit() {
 
     let checkpoint_config = CheckpointConfig {
         min_checkpoint_interval: 15,
-        emergency_disbursal_lock_time_interval: 100 * 60,
+        emergency_disbursal_lock_time_interval: 5 * 60,
+        ..Default::default()
+    };
+
+    let bitcoin_config = BitcoinConfig {
+        max_deposit_age: 2 * 60,
         ..Default::default()
     };
 
@@ -1538,7 +1543,7 @@ async fn recover_expired_deposit() {
         4,
         Some(headers_config),
         Some(checkpoint_config),
-        None,
+        Some(bitcoin_config),
     );
 
     let node = Node::<nomic::app::App>::new(node_path, Some("nomic-e2e"), Default::default());
@@ -1556,7 +1561,7 @@ async fn recover_expired_deposit() {
         test_bitcoin_client(rpc_url.clone(), cookie_file.clone()).await,
         rpc_addr.clone(),
     );
-    let deposits = relayer.start_deposit_relay(&header_relayer_path, 60 * 60 * 12);
+    let deposits = relayer.start_deposit_relay(&header_relayer_path, 30);
 
     let mut relayer = Relayer::new(
         test_bitcoin_client(rpc_url.clone(), cookie_file.clone()).await,
@@ -1624,6 +1629,16 @@ async fn recover_expired_deposit() {
         let expiring_deposit_address = generate_deposit_address(&funded_accounts[1].address)
             .await
             .unwrap();
+        broadcast_deposit_addr(
+            funded_accounts[1].address.to_string(),
+            expiring_deposit_address.sigset_index,
+            "http://localhost:8999".to_string(),
+            expiring_deposit_address.deposit_addr.clone(),
+        )
+        .await?;
+
+        info!("Waiting 60 seconds for expiring deposit address 50% progress");
+        tokio::time::sleep(Duration::from_secs(60)).await;
 
         deposit_bitcoin(
             &funded_accounts[0].address,
@@ -1641,6 +1656,9 @@ async fn recover_expired_deposit() {
         poll_for_bitcoin_header(1124).await.unwrap();
         poll_for_completed_checkpoint(1).await;
 
+        info!("Waiting 60 seconds for expiring deposit address 100% progress");
+        tokio::time::sleep(Duration::from_secs(60)).await;
+
         let sent_txid = wallet
             .send_to_address(
                 &bitcoin::Address::from_str(&expiring_deposit_address.deposit_addr).unwrap(),
@@ -1653,58 +1671,28 @@ async fn recover_expired_deposit() {
                 None,
             )
             .unwrap();
-
         println!("sent_txid: {:?}", sent_txid);
-
         btc_client
             .generate_to_address(6, &async_wallet_address)
             .await
             .unwrap();
-
         poll_for_bitcoin_header(1130).await.unwrap();
 
-        tokio::time::sleep(Duration::from_secs(90)).await;
-        deposit_bitcoin(
-            &funded_accounts[0].address,
-            bitcoin::Amount::from_btc(5.0).unwrap(),
-            &wallet,
-        )
-        .await
-        .unwrap();
-
+        info!("Waiting 15 seconds for recovery to be relayed");
+        tokio::time::sleep(Duration::from_secs(15)).await;
         btc_client
-            .generate_to_address(4, &async_wallet_address)
+            .generate_to_address(6, &async_wallet_address)
             .await
             .unwrap();
-
-        poll_for_bitcoin_header(1134).await.unwrap();
+        poll_for_bitcoin_header(1136).await.unwrap();
         poll_for_completed_checkpoint(2).await;
-        // tokio::time::sleep(Duration::from_secs(90)).await;
-
-        broadcast_deposit_addr(
-            funded_accounts[1].address.to_string(),
-            expiring_deposit_address.sigset_index,
-            "http://localhost:8999".to_string(),
-            expiring_deposit_address.deposit_addr.clone(),
-        )
-        .await?;
-
         btc_client
-            .generate_to_address(1, &async_wallet_address)
+            .generate_to_address(6, &async_wallet_address)
             .await
             .unwrap();
+        poll_for_bitcoin_header(1142).await.unwrap();
 
-        poll_for_bitcoin_header(1135).await.unwrap();
-
-        btc_client
-            .generate_to_address(50, &async_wallet_address)
-            .await
-            .unwrap();
-
-        poll_for_bitcoin_header(1185).await.unwrap();
-        poll_for_completed_checkpoint(3).await;
-
-        let expected_balance = 39596871600000;
+        let expected_balance = 39595941000000;
         let balance = poll_for_updated_balance(funded_accounts[1].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
