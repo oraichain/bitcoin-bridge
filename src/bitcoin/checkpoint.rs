@@ -19,7 +19,6 @@ use bitcoin::{blockdata::transaction::EcdsaSighashType, Sequence, Transaction, T
 use bitcoin::{hashes::Hash, Script};
 use derive_more::{Deref, DerefMut};
 use log::info;
-use orga::coins::{Accounts, Coin};
 #[cfg(feature = "full")]
 use orga::context::GetContext;
 #[cfg(feature = "full")]
@@ -33,6 +32,10 @@ use orga::{
     query::Query,
     state::State,
     Error as OrgaError, Result as OrgaResult,
+};
+use orga::{
+    coins::{Accounts, Coin},
+    merk::merk::rocksdb::checkpoint,
 };
 
 use super::SIGSET_THRESHOLD;
@@ -1880,6 +1883,21 @@ impl CheckpointQueue {
         } else {
             Ok(vec![])
         }
+    }
+
+    #[query]
+    pub fn disbursal_txs_per_checkpoint(
+        &self,
+        checkpoint_index: Option<u32>,
+    ) -> Result<Vec<Adapter<bitcoin::Transaction>>> {
+        if let Some(index) = checkpoint_index {
+            let checkpoint = self.get(index).unwrap();
+            return checkpoint.emergency_disbursal_txs();
+        }
+        if let Some(completed) = self.completed(1)?.last() {
+            return completed.emergency_disbursal_txs();
+        }
+        Ok(vec![])
     }
 
     /// The last complete builiding checkpoint transaction, which have the type BatchType::Checkpoint

@@ -604,12 +604,14 @@ async fn bitcoin_checkpoint(checkpoint_index: u32) -> Result<Value, BadRequest<S
         .query(|app: InnerApp| {
             let checkpoint = app.bitcoin.checkpoints.get(checkpoint_index)?;
             let sigset = checkpoint.sigset.clone();
+            let building_checkpoint = checkpoint.checkpoint_tx()?;
             Ok((
                 checkpoint.fee_rate,
                 checkpoint.fees_collected,
                 checkpoint.status,
                 checkpoint.signed_at_btc_height,
                 sigset,
+                building_checkpoint,
             ))
         })
         .await
@@ -621,6 +623,7 @@ async fn bitcoin_checkpoint(checkpoint_index: u32) -> Result<Value, BadRequest<S
             "fees_collected": data.1,
             "signed_at_btc_height": data.3,
             "sigset": data.4,
+            "transaction_data": data.5,
             "status": data.2,
         }
     }))
@@ -672,10 +675,10 @@ async fn bitcoin_checkpoint_config() -> Result<Value, BadRequest<String>> {
     Ok(json!(config))
 }
 
-#[get("/bitcoin/checkpoint/disbursal_txs")]
-async fn checkpoint_disbursal_txs() -> Result<Value, BadRequest<String>> {
+#[get("/bitcoin/checkpoint/disbursal_txs?<checkpoint_index>")]
+async fn checkpoint_disbursal_txs(checkpoint_index: Option<u32>) -> Result<Value, BadRequest<String>> {
     let data = app_client()
-        .query(|app: InnerApp| Ok(app.bitcoin.checkpoints.emergency_disbursal_txs()?))
+        .query(|app: InnerApp| Ok(app.bitcoin.checkpoints.disbursal_txs_per_checkpoint(checkpoint_index)?))
         .await
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
 
