@@ -537,18 +537,13 @@ impl Bitcoin {
     }
 
     pub fn calc_minimum_deposit_fees(&self, input_vsize: u64, fee_rate: u64) -> u64 {
-        let fee_amount = input_vsize * fee_rate * self.checkpoints.config.user_fee_factor / 10_000
-            * self.config.units_per_sat;
-        fee_amount
+        input_vsize * fee_rate * self.checkpoints.config.user_fee_factor / 10_000
+            * self.config.units_per_sat
     }
 
     pub fn calc_minimum_withdrawal_fees(&self, script_pubkey_length: u64, fee_rate: u64) -> u64 {
-        let fee_amount = (9 + script_pubkey_length)
-            * fee_rate
-            * self.checkpoints.config.user_fee_factor
-            / 10_000
-            * self.config.units_per_sat;
-        fee_amount
+        (9 + script_pubkey_length) * fee_rate * self.checkpoints.config.user_fee_factor / 10_000
+            * self.config.units_per_sat
     }
 
     /// Verifies and processes a deposit of BTC into the reserve.
