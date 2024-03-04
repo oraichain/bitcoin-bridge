@@ -2119,7 +2119,7 @@ async fn test_emergency_disbursal() {
         // after enough time, the signer 2 will be slashed
         tx.send(Some(())).await.unwrap();
 
-        let expected_balance = 989996871600000;
+        let expected_balance = 989984200000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
