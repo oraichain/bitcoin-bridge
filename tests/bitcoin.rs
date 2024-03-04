@@ -21,6 +21,7 @@ use nomic::bitcoin::deposit_index::{Deposit, DepositInfo};
 use nomic::bitcoin::header_queue::Config as HeaderQueueConfig;
 use nomic::bitcoin::relayer::DepositAddress;
 use nomic::bitcoin::relayer::Relayer;
+use nomic::bitcoin::signatory::SignatorySet;
 use nomic::bitcoin::signer::Signer;
 use nomic::bitcoin::threshold_sig::Pubkey;
 use nomic::bitcoin::Config as BitcoinConfig;
@@ -60,8 +61,7 @@ fn app_client() -> AppClient<InnerApp, InnerApp, orga::tendermint::client::HttpC
 }
 
 async fn generate_deposit_address(address: &Address) -> Result<DepositAddress> {
-    info!("Generating deposit address for {}...", address);
-    let (sigset, threshold) = app_client()
+    let (sigset, threshold): (SignatorySet, (u64, u64)) = app_client()
         .query(|app: InnerApp| {
             Ok((
                 app.bitcoin.checkpoints.active_sigset()?,
@@ -69,6 +69,10 @@ async fn generate_deposit_address(address: &Address) -> Result<DepositAddress> {
             ))
         })
         .await?;
+    info!(
+        "Generating deposit address for {} with sigset index: {} ...",
+        address, sigset.index
+    );
     let script = sigset.output_script(
         Dest::Address(*address).commitment_bytes()?.as_slice(),
         threshold,
@@ -1295,7 +1299,7 @@ async fn signer_key_updating() {
         poll_for_completed_checkpoint(1).await;
 
         let completed_checkpoint_0_pubkey = app_client()
-            .query(|app| {
+            .query(|app: InnerApp| {
                 let last_completed = app.bitcoin.checkpoints.last_completed()?;
                 assert!(last_completed.sigset.signatories.len() == 1);
                 Ok(last_completed.sigset.signatories.get(0).unwrap().pubkey)
@@ -1317,7 +1321,7 @@ async fn signer_key_updating() {
         );
 
         let building_checkpoint_1_pubkey = app_client()
-            .query(|app| {
+            .query(|app: InnerApp| {
                 let building = app.bitcoin.checkpoints.building()?;
                 assert!(building.sigset.signatories.len() == 1);
                 Ok(building.sigset.signatories.get(0).unwrap().pubkey)
@@ -1396,7 +1400,7 @@ async fn signer_key_updating() {
         poll_for_completed_checkpoint(2).await;
 
         let completed_checkpoint_1_pubkey = app_client()
-            .query(|app| {
+            .query(|app: InnerApp| {
                 let last_completed = app.bitcoin.checkpoints.last_completed()?;
                 assert!(last_completed.sigset.signatories.len() == 1);
                 Ok(last_completed.sigset.signatories.get(0).unwrap().pubkey)
@@ -1410,7 +1414,7 @@ async fn signer_key_updating() {
         );
 
         let building_checkpoint_2_pubkey = app_client()
-            .query(|app| {
+            .query(|app: InnerApp| {
                 let building = app.bitcoin.checkpoints.building()?;
                 assert!(building.sigset.signatories.len() == 1);
                 Ok(building.sigset.signatories.get(0).unwrap().pubkey)
@@ -1449,7 +1453,7 @@ async fn signer_key_updating() {
         poll_for_completed_checkpoint(3).await;
 
         let completed_checkpoint_2_pubkey = app_client()
-            .query(|app| {
+            .query(|app: InnerApp| {
                 let last_completed = app.bitcoin.checkpoints.last_completed()?;
                 assert!(last_completed.sigset.signatories.len() == 1);
                 Ok(last_completed.sigset.signatories.get(0).unwrap().pubkey)
@@ -1608,10 +1612,6 @@ async fn recover_expired_deposit() {
         let async_wallet_address =
             bitcoincore_rpc_async::bitcoin::Address::from_str(&wallet_address.to_string()).unwrap();
 
-        set_recovery_address(funded_accounts[0].clone())
-            .await
-            .unwrap();
-
         btc_client
             .generate_to_address(120, &async_wallet_address)
             .await
@@ -1626,6 +1626,7 @@ async fn recover_expired_deposit() {
         poll_for_active_sigset().await;
         poll_for_signatory_key(consensus_key).await;
 
+        // generate expiring deposit address of checkpoint 1, we will recover this in checkpoint 2
         let expiring_deposit_address = generate_deposit_address(&funded_accounts[1].address)
             .await
             .unwrap();
@@ -1835,7 +1836,7 @@ async fn generate_deposit_expired() {
         poll_for_bitcoin_header(1120).await.unwrap();
 
         let balance = app_client()
-            .query(|app| app.bitcoin.accounts.balance(funded_accounts[0].address))
+            .query(|app: InnerApp| app.bitcoin.accounts.balance(funded_accounts[0].address))
             .await
             .unwrap();
         assert_eq!(balance, Amount::from(0));
@@ -1856,7 +1857,7 @@ async fn generate_deposit_expired() {
     poll_for_blocks().await;
 
     match futures::try_join!(headers, deposits, checkpoints, signer, test) {
-        Err(Error::Test(_)) => panic!("Test failed to fail on deposit address generation"),
+        Err(Error::Test(_)) => (),
         Err(Error::Relayer(e)) => {
             if !e.to_string().contains("Unable to generate deposit address") {
                 panic!("Unexpected error: {}", e);
@@ -3101,10 +3102,6 @@ async fn test_deposit_with_high_min_confirmations() {
 
         wallet
             .import_multi(import_multi_reqest.as_slice(), None)
-            .unwrap();
-
-        set_recovery_address(funded_accounts[0].clone())
-            .await
             .unwrap();
 
         btc_client

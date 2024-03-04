@@ -1980,7 +1980,7 @@ impl RecoverDepositCmd {
         log::info!(
             "Relayed deposit: {} sats, {:?}",
             tx.output[self.vout as usize].value,
-            dest
+            dest.to_receiver_addr()
         );
 
         Ok(())
