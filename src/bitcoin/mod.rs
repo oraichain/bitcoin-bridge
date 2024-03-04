@@ -575,9 +575,9 @@ impl Bitcoin {
             .ok_or_else(|| OrgaError::App("Invalid bitcoin block height".to_string()))?;
 
         if self.headers.height()? - btc_height < self.config.min_confirmations {
-            log::info!("Self headers: {} - btc height: {}", self.headers.height()?, btc_height);
-            println!("Self headers: {} - btc height: {}", self.headers.height()?, btc_height);
-            return Err(OrgaError::App("Block is not sufficiently confirmed".to_string()).into());
+            let headers_and_height = format!("Self headers: {} - btc height: {}", self.headers.height()?, btc_height);
+            let concatenated_string = format!("{} - {}", "Block is not sufficiently confirmed".to_string(), headers_and_height);
+            return Err(OrgaError::App(concatenated_string).into());
         }
 
         let mut txids = vec![];
@@ -725,9 +725,9 @@ impl Bitcoin {
             .ok_or_else(|| OrgaError::App("Invalid bitcoin block height".to_string()))?;
 
         if self.headers.height()? - btc_height < self.config.min_checkpoint_confirmations {
-            log::info!("Self headers: {} - btc height: {}", self.headers.height()?, btc_height);
-            println!("Self headers: {} - btc height: {}", self.headers.height()?, btc_height);
-            return Err(OrgaError::App("Block is not sufficiently confirmed".to_string()).into());
+            let headers_and_height = format!("Self headers: {} - btc height: {}", self.headers.height()?, btc_height);
+            let concatenated_string = format!("{} - {}", "Block is not sufficiently confirmed".to_string(), headers_and_height);
+            return Err(OrgaError::App(concatenated_string).into());
         }
 
         let mut txids = vec![];
