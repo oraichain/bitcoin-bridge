@@ -49,8 +49,6 @@ pub struct Relayer {
 
     scripts: Option<WatchedScriptStore>,
     deposit_buffer: Option<u64>,
-
-    max_scan_checkpoint_confs: Option<usize>,
 }
 
 impl Relayer {
@@ -60,7 +58,6 @@ impl Relayer {
             app_client_addr,
             scripts: None,
             deposit_buffer: None,
-            max_scan_checkpoint_confs: None,
         }
     }
 
@@ -699,10 +696,8 @@ impl Relayer {
     ) -> Result<()> {
         info!("Starting checkpoint confirmation relay...");
 
-        self.max_scan_checkpoint_confs = Some(max_scan_checkpoint_confs);
-
         loop {
-            if let Err(e) = self.relay_checkpoint_confs().await {
+            if let Err(e) = self.relay_checkpoint_confs(max_scan_checkpoint_confs).await {
                 error!("Checkpoint confirmation relay error: {}", e);
             }
 
@@ -710,7 +705,7 @@ impl Relayer {
         }
     }
 
-    async fn relay_checkpoint_confs(&mut self) -> Result<()> {
+    async fn relay_checkpoint_confs(&mut self, max_scan_checkpoint_confs: usize) -> Result<()> {
         loop {
             let (confirmed_index, unconf_index, last_completed_index) = {
                 let res = app_client(&self.app_client_addr)
@@ -762,11 +757,7 @@ impl Relayer {
             let unconfirmed_txid = tx.txid();
 
             let maybe_conf = self
-                .scan_for_txid(
-                    unconfirmed_txid,
-                    100,
-                    self.max_scan_checkpoint_confs.unwrap(),
-                )
+                .scan_for_txid(unconfirmed_txid, 100, max_scan_checkpoint_confs)
                 .await?;
             if let Some((height, block_hash)) = maybe_conf {
                 if height > btc_height - min_confs {
