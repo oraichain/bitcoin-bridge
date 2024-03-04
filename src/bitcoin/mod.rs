@@ -576,6 +576,7 @@ impl Bitcoin {
 
         if self.headers.height()? - btc_height < self.config.min_confirmations {
             log::info!("Self headers: {} - btc height: {}", self.headers.height()?, btc_height);
+            println!("Self headers: {} - btc height: {}", self.headers.height()?, btc_height);
             return Err(OrgaError::App("Block is not sufficiently confirmed".to_string()).into());
         }
 
@@ -725,6 +726,7 @@ impl Bitcoin {
 
         if self.headers.height()? - btc_height < self.config.min_checkpoint_confirmations {
             log::info!("Self headers: {} - btc height: {}", self.headers.height()?, btc_height);
+            println!("Self headers: {} - btc height: {}", self.headers.height()?, btc_height);
             return Err(OrgaError::App("Block is not sufficiently confirmed".to_string()).into());
         }
 
