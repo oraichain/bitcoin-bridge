@@ -6,7 +6,9 @@ use chrono::{TimeZone, Utc};
 use nomic::{
     app::{InnerApp, Nom},
     bitcoin::{
-        checkpoint::{CheckpointQueue, Config as CheckpointConfig},
+        adapter::Adapter,
+        calc_deposit_fee,
+        checkpoint::{BuildingCheckpoint, CheckpointQueue, Config as CheckpointConfig},
         signatory::SignatorySet,
         Config, Nbtc,
     },
@@ -554,6 +556,37 @@ async fn bitcoin_value_locked() -> Value {
     })
 }
 
+#[get("/bitcoin/deposit_fees?<checkpoint_index>")]
+async fn bitcoin_minimum_deposit(
+    checkpoint_index: Option<u32>,
+) -> Result<Value, BadRequest<String>> {
+    let deposit_fees: u64 = app_client()
+        .query(|app: InnerApp| Ok(app.deposit_fees(checkpoint_index)?))
+        .await
+        .map_err(|e| BadRequest(Some(format!("error: {:?}", e))))?;
+
+    Ok(json!({
+        "deposit_fees": deposit_fees
+    }))
+}
+
+#[get("/bitcoin/withdrawal_fees/<address>?<checkpoint_index>")]
+async fn bitcoin_minimum_withdrawal(
+    address: String,
+    checkpoint_index: Option<u32>,
+) -> Result<Value, BadRequest<String>> {
+    let withdrawal_fees: u64 = app_client()
+        .query(|app: InnerApp| {
+            Ok(app.withdrawal_fees(Adapter::new(address.clone()), checkpoint_index)?)
+        })
+        .await
+        .map_err(|e| BadRequest(Some(format!("error: {:?}", e))))?;
+
+    Ok(json!({
+        "withdrawal_fees": withdrawal_fees
+    }))
+}
+
 #[get("/bitcoin/sigset?<index>")]
 async fn bitcoin_sigset_with_index(index: u32) -> Result<Value, BadRequest<String>> {
     let sigset: SignatorySet = app_client()
@@ -571,12 +604,14 @@ async fn bitcoin_checkpoint(checkpoint_index: u32) -> Result<Value, BadRequest<S
         .query(|app: InnerApp| {
             let checkpoint = app.bitcoin.checkpoints.get(checkpoint_index)?;
             let sigset = checkpoint.sigset.clone();
+            let building_checkpoint = checkpoint.checkpoint_tx()?;
             Ok((
                 checkpoint.fee_rate,
                 checkpoint.fees_collected,
                 checkpoint.status,
                 checkpoint.signed_at_btc_height,
                 sigset,
+                building_checkpoint
             ))
         })
         .await
@@ -586,9 +621,10 @@ async fn bitcoin_checkpoint(checkpoint_index: u32) -> Result<Value, BadRequest<S
         "data": {
             "fee_rate": data.0,
             "fees_collected": data.1,
+            "status": data.2,
             "signed_at_btc_height": data.3,
             "sigset": data.4,
-            "status": data.2,
+            "transaction_data": data.5,
         }
     }))
 }
@@ -643,6 +679,18 @@ async fn bitcoin_checkpoint_config() -> Result<Value, BadRequest<String>> {
 async fn checkpoint_disbursal_txs() -> Result<Value, BadRequest<String>> {
     let data = app_client()
         .query(|app: InnerApp| Ok(app.bitcoin.checkpoints.emergency_disbursal_txs()?))
+        .await
+        .map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
+
+    Ok(json!({
+        "data": data
+    }))
+}
+
+#[get("/bitcoin/checkpoint/last_completed_tx")]
+async fn last_completed_checkpoint_tx() -> Result<Value, BadRequest<String>> {
+    let data = app_client()
+        .query(|app: InnerApp| Ok(app.bitcoin.checkpoints.last_completed_checkpoint_tx()?))
         .await
         .map_err(|e| BadRequest(Some(format!("{:?}", e))))?;
 
@@ -1647,7 +1695,10 @@ fn rocket() -> _ {
             bitcoin_checkpoint_queue,
             checkpoint_disbursal_txs,
             bitcoin_last_confirmed_checkpoint,
-            bitcoin_sigset_with_index
+            bitcoin_sigset_with_index,
+            bitcoin_minimum_deposit,
+            bitcoin_minimum_withdrawal,
+            last_completed_checkpoint_tx
         ],
     )
 }

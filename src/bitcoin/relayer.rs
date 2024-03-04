@@ -237,16 +237,16 @@ impl Relayer {
                     async move {
                         debug!("Received deposit commitment: {:?}, {}", dest, sigset_index);
                         send.send((dest, sigset_index)).await.unwrap();
-                        let max_deposit_age = app_client(app_client_addr)
-                            .query(|app| Ok(app.bitcoin.config.max_deposit_age))
-                            .await
-                            .map_err(|e| warp::reject::custom(Error::from(e)))?;
-                        if time_now() + deposit_buffer >= create_time + max_deposit_age {
-                            return Err(warp::reject::custom(Error::Relayer(
-                        "Sigset no longer accepting deposits. Unable to generate deposit address"
-                            .into(),
-                    )));
-                        }
+                            let max_deposit_age = app_client(app_client_addr)
+                                .query(|app: InnerApp| Ok(app.bitcoin.config.max_deposit_age))
+                                .await
+                                .map_err(|e| warp::reject::custom(Error::from(e)))?;
+                            if time_now() + deposit_buffer >= create_time + max_deposit_age {
+                                return Err(warp::reject::custom(Error::Relayer(
+                            "Sigset no longer accepting deposits. Unable to generate deposit address"
+                                .into(),
+                        )));
+                            }
 
                         Ok::<_, warp::Rejection>(warp::reply::json(&"OK"))
                     }
@@ -511,11 +511,6 @@ impl Relayer {
                 .unwrap()
                 .as_secs();
 
-            println!(
-                "is now smaller than lock time: {:?}",
-                now < tx.lock_time.0 as u64
-            );
-
             if now < tx.lock_time.to_u32() as u64 {
                 return Ok(());
             }
@@ -690,11 +685,14 @@ impl Relayer {
         }
     }
 
-    pub async fn start_checkpoint_conf_relay(&mut self) -> Result<()> {
+    pub async fn start_checkpoint_conf_relay(
+        &mut self,
+        max_scan_checkpoint_confs: usize,
+    ) -> Result<()> {
         info!("Starting checkpoint confirmation relay...");
 
         loop {
-            if let Err(e) = self.relay_checkpoint_confs().await {
+            if let Err(e) = self.relay_checkpoint_confs(max_scan_checkpoint_confs).await {
                 error!("Checkpoint confirmation relay error: {}", e);
             }
 
@@ -702,7 +700,7 @@ impl Relayer {
         }
     }
 
-    async fn relay_checkpoint_confs(&mut self) -> Result<()> {
+    async fn relay_checkpoint_confs(&mut self, max_scan_checkpoint_confs: usize) -> Result<()> {
         loop {
             let (confirmed_index, unconf_index, last_completed_index) = {
                 let res = app_client(&self.app_client_addr)
@@ -753,7 +751,9 @@ impl Relayer {
                     .await?;
             let unconfirmed_txid = tx.txid();
 
-            let maybe_conf = self.scan_for_txid(unconfirmed_txid, 100).await?;
+            let maybe_conf = self
+                .scan_for_txid(unconfirmed_txid, 100, max_scan_checkpoint_confs)
+                .await?;
             if let Some((height, block_hash)) = maybe_conf {
                 if height > btc_height - min_confs {
                     continue;
@@ -780,6 +780,9 @@ impl Relayer {
                     )
                     .await?;
             }
+
+            // This will avoid spamming rpc when there are no confirm checkpoints yet
+            tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
         }
     }
 
@@ -787,23 +790,41 @@ impl Relayer {
         &mut self,
         txid: bitcoin::Txid,
         num_blocks: usize,
+        maximum_blocks: usize,
     ) -> Result<Option<(u32, BlockHash)>> {
-        let tip = self.sidechain_block_hash().await?;
-        let base_height = self
+        let mut tip = self.sidechain_block_hash().await?;
+        let mut base_height = self
             .btc_client()
             .await
             .get_block_header_info(&tip)
             .await?
             .height;
-        let blocks = self.last_n_blocks(num_blocks, tip).await?;
+        let initial_height = base_height;
 
-        for (i, block) in blocks.into_iter().enumerate().rev() {
-            let height = (base_height - i) as u32;
-            for tx in block.txdata.iter() {
-                if tx.txid() == txid {
-                    return Ok(Some((height, block.block_hash())));
+        loop {
+            if initial_height - base_height >= maximum_blocks {
+                break;
+            }
+            let blocks = self.last_n_blocks(num_blocks, tip).await?;
+            for (i, block) in blocks.clone().into_iter().enumerate().rev() {
+                let height = (base_height - i) as u32;
+                for tx in block.txdata.iter() {
+                    if tx.txid() == txid {
+                        return Ok(Some((height, block.block_hash())));
+                    }
                 }
             }
+            let oldest_block = blocks[blocks.len() - 1].header.block_hash();
+            if oldest_block.eq(&tip) {
+                break;
+            }
+            tip = oldest_block;
+            base_height = self
+                .btc_client()
+                .await
+                .get_block_header_info(&tip)
+                .await?
+                .height;
         }
 
         Ok(None)
@@ -987,7 +1008,9 @@ impl Relayer {
             .await?;
         info!(
             "Relayed deposit: {} sats, {:?}, fee rate: {}",
-            tx.output[vout as usize].value, dest, fee_rate
+            tx.output[vout as usize].value,
+            dest.to_receiver_addr(),
+            fee_rate
         );
 
         Ok(())
