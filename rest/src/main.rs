@@ -604,12 +604,14 @@ async fn bitcoin_checkpoint(checkpoint_index: u32) -> Result<Value, BadRequest<S
         .query(|app: InnerApp| {
             let checkpoint = app.bitcoin.checkpoints.get(checkpoint_index)?;
             let sigset = checkpoint.sigset.clone();
+            let building_checkpoint = checkpoint.checkpoint_tx()?;
             Ok((
                 checkpoint.fee_rate,
                 checkpoint.fees_collected,
                 checkpoint.status,
                 checkpoint.signed_at_btc_height,
                 sigset,
+                building_checkpoint
             ))
         })
         .await
@@ -619,9 +621,10 @@ async fn bitcoin_checkpoint(checkpoint_index: u32) -> Result<Value, BadRequest<S
         "data": {
             "fee_rate": data.0,
             "fees_collected": data.1,
+            "status": data.2,
             "signed_at_btc_height": data.3,
             "sigset": data.4,
-            "status": data.2,
+            "transaction_data": data.5,
         }
     }))
 }
