@@ -177,6 +177,8 @@ impl Relayer {
                     Bytes,
                 )| {
                     async move {
+                        info!("Sigset Index: {}, Deposit Addr: {}, Send: {:?}, Sigsets: {:?} Body: {:?}", query.sigset_index, query.deposit_addr, send, sigsets, body);
+
                         let dest = Dest::decode(body.to_vec().as_slice())
                             .map_err(|e| warp::reject::custom(Error::from(e)))?;
 
