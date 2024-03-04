@@ -20,6 +20,7 @@ use nomic::bitcoin::Config;
 use nomic::bitcoin::Nbtc;
 use nomic::bitcoin::{relayer::Relayer, signer::Signer};
 use nomic::constants::BTC_NATIVE_TOKEN_DENOM;
+use nomic::constants::DEFAULT_MAX_SCAN_CHECKPOINTS_CONFIRMATIONS;
 use nomic::constants::MAIN_NATIVE_TOKEN_DENOM;
 use nomic::error::Result;
 use nomic::utils::load_bitcoin_key;
@@ -42,7 +43,7 @@ use orga::prelude::*;
 use orga::{client::AppClient, tendermint::client::HttpClient};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-// use std::convert::TryInto;
+use std::convert::TryInto;
 use std::fs::Permissions;
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
@@ -1103,6 +1104,9 @@ pub struct RelayerCmd {
     #[clap(short = 'P', long)]
     rpc_pass: Option<String>,
 
+    #[clap(long, default_value_t = DEFAULT_MAX_SCAN_CHECKPOINTS_CONFIRMATIONS)]
+    max_scan_checkpoint_confs: usize,
+
     #[clap(flatten)]
     config: nomic::network::Config,
 }
@@ -1151,7 +1155,7 @@ impl RelayerCmd {
         let checkpoints = relayer.start_checkpoint_relay();
 
         let mut relayer = create_relayer().await;
-        let checkpoint_confs = relayer.start_checkpoint_conf_relay();
+        let checkpoint_confs = relayer.start_checkpoint_conf_relay(self.max_scan_checkpoint_confs);
 
         let mut relayer = create_relayer().await;
         let emdis = relayer.start_emergency_disbursal_transaction_relay();
