@@ -1073,7 +1073,7 @@ impl MigrateFrom<ConfigV2> for ConfigV3 {
             #[cfg(feature = "testnet")]
             max_unconfirmed_checkpoints: 15,
             #[cfg(not(feature = "testnet"))]
-            max_unconfirmed_checkpoints: 1,
+            max_unconfirmed_checkpoints: 10,
             ..Default::default()
         })
     }
