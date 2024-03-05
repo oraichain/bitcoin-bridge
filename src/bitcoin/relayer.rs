@@ -15,7 +15,6 @@ use bitcoin::consensus::{Decodable, Encodable};
 use bitcoin::Txid;
 use bitcoin::{hashes::Hash, Block, BlockHash, Transaction};
 use bitcoincore_rpc_async::{json::GetBlockHeaderResult, Client as BitcoinRpcClient, RpcApi};
-use cosmos_sdk_proto::cosmos::base;
 use log::{debug, error, info, warn};
 use orga::encoding::Decode;
 use orga::macros::build_call;

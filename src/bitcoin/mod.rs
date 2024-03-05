@@ -1075,8 +1075,9 @@ impl Bitcoin {
     ///
     /// This should be used to process the pending transfers, crediting each of
     /// them now that the checkpoint has been fully signed.
+    #[allow(clippy::type_complexity)]
     pub fn take_pending(&mut self) -> Result<Vec<Vec<(Dest, Coin<Nbtc>)>>> {
-        if let Some(err) = self.checkpoints.unhandled_confirmed().err() {
+        if self.checkpoints.unhandled_confirmed().err().is_some() {
             return Ok(vec![]);
         }
 
@@ -1273,7 +1274,12 @@ mod tests {
         secp256k1::Secp256k1, util::bip32::ExtendedPrivKey, BlockHash, BlockHeader, OutPoint,
         TxMerkleNode, Txid,
     };
-    use orga::collections::EntryMap;
+    use orga::{
+        collections::EntryMap,
+        ibc::ibc_rs::core::ics24_host::identifier::{ChannelId, PortId},
+    };
+
+    use crate::app::IbcDest;
 
     use super::{
         header_queue::{WorkHeader, WrappedHeader},
@@ -1555,7 +1561,7 @@ mod tests {
             ExtendedPubKey::from_priv(&secp, &xpriv[1]),
         ];
 
-        let push_deposit = || {
+        let push_deposit = |dest: Dest, coin: Coin<Nbtc>| {
             let input = Input::new(
                 OutPoint {
                     txid: Txid::from_slice(&[0; 32]).unwrap(),
@@ -1570,6 +1576,7 @@ mod tests {
             let mut btc = btc.borrow_mut();
             let mut building_mut = btc.checkpoints.building_mut().unwrap();
             building_mut.fees_collected = 100_000_000;
+            building_mut.pending.insert(dest, coin).unwrap();
             let mut building_checkpoint_batch = building_mut
                 .batches
                 .get_mut(BatchType::Checkpoint as u64)
@@ -1642,23 +1649,114 @@ mod tests {
         maybe_step();
         assert_eq!(btc.borrow().checkpoints.len()?, 1);
         set_time(1000);
-        push_deposit();
+        let channel_id = "channel-0"
+            .parse::<ChannelId>()
+            .map_err(|_| Error::Ibc("Invalid channel id".into()))?;
+
+        let port_id = "transfer"
+            .parse::<PortId>()
+            .map_err(|_| Error::Ibc("Invalid port".into()))?;
+        let mut dest = IbcDest {
+            source_port: port_id.to_string().try_into()?,
+            source_channel: channel_id.to_string().try_into()?,
+            sender: orga::encoding::Adapter("sender1".to_string().into()),
+            receiver: orga::encoding::Adapter("receiver".to_owned().into()),
+            timeout_timestamp: 10u64,
+            memo: "".try_into()?,
+        };
+        // fixture: create 2 confirmed checkpoints having deposits so we can validate later
+        push_deposit(Dest::Ibc(dest.clone()), Coin::<Nbtc>::mint(Amount::new(1)));
+        dest.sender = orga::encoding::Adapter("sender2".to_string().into());
+        push_deposit(Dest::Ibc(dest.clone()), Coin::<Nbtc>::mint(Amount::new(1)));
         maybe_step();
         sign_cp(10);
         confirm_cp(0);
-        let dests = take_pending();
-
-        let checkpoints = &btc.borrow().checkpoints;
-        let completed_checkpoint = checkpoints.last_completed().unwrap();
-        println!(
-            "checkpoint len: {:?}",
-            completed_checkpoint.signed_at_btc_height
-        );
+        set_time(2000);
+        push_deposit(Dest::Ibc(dest.clone()), Coin::<Nbtc>::mint(Amount::new(5)));
+        maybe_step();
+        sign_cp(10);
+        confirm_cp(1);
         assert_eq!(
             btc.borrow().checkpoints.first_unhandled_confirmed_cp_index,
+            0
+        );
+        assert_eq!(
+            btc.borrow().checkpoints.confirmed_index,
+            Some(1)
+        );
+        // before take pending, the confirmed checkpoints should have some pending deposits
+        assert_eq!(
+            btc.borrow()
+                .checkpoints
+                .get(0)
+                .unwrap()
+                .pending
+                .iter()
+                .unwrap()
+                .count(),
+            2
+        );
+        assert_eq!(
+            btc.borrow()
+                .checkpoints
+                .get(1)
+                .unwrap()
+                .pending
+                .iter()
+                .unwrap()
+                .count(),
             1
         );
-        println!("dest: {:?}", dests);
+
+        // action. After take pending, the unhandled confirmed index should increase to 2 since we handled 2 confirmed checkpoints
+        let cp_dests = take_pending();
+        let checkpoints = &btc.borrow().checkpoints;
+        assert_eq!(
+            btc.borrow().checkpoints.first_unhandled_confirmed_cp_index,
+            2
+        );
+        assert_eq!(cp_dests.len(), 2);
+        assert_eq!(cp_dests[0].len(), 2);
+        assert_eq!(cp_dests[1].len(), 1);
+        assert_eq!(
+            cp_dests[0][0].0.to_base64().unwrap(),
+            Dest::Ibc(IbcDest {
+                sender: orga::encoding::Adapter("sender1".to_string().into()),
+                ..dest.clone()
+            })
+            .to_base64()
+            .unwrap(),
+        );
+        assert_eq!(cp_dests[0][0].1.amount, Amount::new(1));
+
+        assert_eq!(
+            cp_dests[0][1].0.to_base64().unwrap(),
+            Dest::Ibc(IbcDest {
+                sender: orga::encoding::Adapter("sender2".to_string().into()),
+                ..dest.clone()
+            })
+            .to_base64()
+            .unwrap(),
+        );
+        assert_eq!(cp_dests[0][1].1.amount, Amount::new(1));
+
+        assert_eq!(
+            cp_dests[1][0].0.to_base64().unwrap(),
+            Dest::Ibc(IbcDest {
+                sender: orga::encoding::Adapter("sender2".to_string().into()),
+                ..dest.clone()
+            })
+            .to_base64()
+            .unwrap(),
+        );
+        assert_eq!(cp_dests[1][0].1.amount, Amount::new(5));
+
+        // assert confirmed checkpoints pending. Should not have anything because we have removed them already in take_pending()
+        let checkpoints = &btc.borrow().checkpoints;
+        let first_cp = checkpoints.get(0).unwrap();
+        assert_eq!(first_cp.pending.iter().unwrap().count(), 0);
+        let second_cp = checkpoints.get(1).unwrap();
+        assert_eq!(second_cp.pending.iter().unwrap().count(), 0);
         Ok(())
     }
 }

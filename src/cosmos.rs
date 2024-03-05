@@ -507,10 +507,7 @@ pub async fn relay_op_keys<
 
 #[cfg(test)]
 mod tests {
-    use orga::{
-        encoding::Decode,
-        ibc::{ibc_rs::core::ics24_host::identifier::ClientId, Client},
-    };
+    use orga::{encoding::Decode, ibc::ibc_rs::core::ics24_host::identifier::ClientId};
 
     use super::*;
 
