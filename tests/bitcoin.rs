@@ -275,7 +275,8 @@ async fn bitcoin_test() {
         test_bitcoin_client(rpc_url.clone(), cookie_file.clone()).await,
         rpc_addr.clone(),
     );
-    let checkpoints_conf = relayer.start_checkpoint_conf_relay(DEFAULT_MAX_SCAN_CHECKPOINTS_CONFIRMATIONS);
+    let checkpoints_conf =
+        relayer.start_checkpoint_conf_relay(DEFAULT_MAX_SCAN_CHECKPOINTS_CONFIRMATIONS);
 
     let mut relayer = Relayer::new(
         test_bitcoin_client(rpc_url.clone(), cookie_file.clone()).await,
@@ -441,9 +442,9 @@ async fn bitcoin_test() {
         // Wait sometime for checkpoint to be broadcasted on the network
         tokio::time::sleep(Duration::from_secs(5)).await;
         btc_client
-        .generate_to_address(1, &async_wallet_address)
-        .await
-        .unwrap();
+            .generate_to_address(1, &async_wallet_address)
+            .await
+            .unwrap();
         poll_for_bitcoin_header(1125).await.unwrap();
         poll_for_confirmed_checkpoint(0).await;
 
@@ -480,9 +481,9 @@ async fn bitcoin_test() {
         // Wait sometime for checkpoint to be broadcasted on the network
         tokio::time::sleep(Duration::from_secs(5)).await;
         btc_client
-        .generate_to_address(1, &async_wallet_address)
-        .await
-        .unwrap();
+            .generate_to_address(1, &async_wallet_address)
+            .await
+            .unwrap();
         poll_for_bitcoin_header(1133).await.unwrap();
         poll_for_confirmed_checkpoint(1).await;
 
@@ -518,9 +519,9 @@ async fn bitcoin_test() {
         // Wait sometime for checkpoint to be broadcasted on the network
         tokio::time::sleep(Duration::from_secs(5)).await;
         btc_client
-        .generate_to_address(1, &async_wallet_address)
-        .await
-        .unwrap();
+            .generate_to_address(1, &async_wallet_address)
+            .await
+            .unwrap();
         poll_for_bitcoin_header(1138).await.unwrap();
         poll_for_confirmed_checkpoint(2).await;
 
