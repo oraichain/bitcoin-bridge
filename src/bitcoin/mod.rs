@@ -1664,6 +1664,9 @@ mod tests {
             timeout_timestamp: 10u64,
             memo: "".try_into()?,
         };
+
+        // initially, there should not be any confirmed checkpoints -> return empty array for pending dests
+        assert_eq!(take_pending().len(), 0);
         // fixture: create 2 confirmed checkpoints having deposits so we can validate later
         push_deposit(Dest::Ibc(dest.clone()), Coin::<Nbtc>::mint(Amount::new(1)));
         dest.sender = orga::encoding::Adapter("sender2".to_string().into());
@@ -1680,10 +1683,7 @@ mod tests {
             btc.borrow().checkpoints.first_unhandled_confirmed_cp_index,
             0
         );
-        assert_eq!(
-            btc.borrow().checkpoints.confirmed_index,
-            Some(1)
-        );
+        assert_eq!(btc.borrow().checkpoints.confirmed_index, Some(1));
         // before take pending, the confirmed checkpoints should have some pending deposits
         assert_eq!(
             btc.borrow()
