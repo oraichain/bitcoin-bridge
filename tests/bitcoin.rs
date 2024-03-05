@@ -2560,6 +2560,16 @@ async fn test_withdraw() {
         assert_eq!(confirmed_index, None);
 
         poll_for_completed_checkpoint(1).await;
+
+        // Wait sometime for checkpoint to be broadcasted on the network
+        tokio::time::sleep(Duration::from_secs(5)).await;
+        btc_client
+            .generate_to_address(1, &async_wallet_address)
+            .await
+            .unwrap();
+        poll_for_bitcoin_header(1125).await.unwrap();
+        poll_for_confirmed_checkpoint(0).await;
+
         tx.send(Some(())).await.unwrap();
         // wait for the checkpoint tx to go through
         tokio::time::sleep(Duration::from_secs(15)).await;
@@ -2569,8 +2579,7 @@ async fn test_withdraw() {
             .await
             .unwrap();
 
-        poll_for_bitcoin_header(1130).await.unwrap();
-        poll_for_confirmed_checkpoint(0).await;
+        poll_for_bitcoin_header(1131).await.unwrap();
 
         app_client()
             .with_wallet(funded_accounts[0].wallet.clone())
@@ -2588,7 +2597,7 @@ async fn test_withdraw() {
             .await
             .unwrap();
 
-        poll_for_bitcoin_header(1133).await.unwrap();
+        poll_for_bitcoin_header(1134).await.unwrap();
 
         println!(
             "withdraw address to string: {:?}",
@@ -2623,16 +2632,6 @@ async fn test_withdraw() {
 
         poll_for_bitcoin_header(1137).await.unwrap();
         poll_for_completed_checkpoint(2).await;
-        // wait for the checkpoint tx to go through
-        tokio::time::sleep(Duration::from_secs(15)).await;
-
-        btc_client
-            .generate_to_address(4, &async_wallet_address)
-            .await
-            .unwrap();
-
-        poll_for_bitcoin_header(1141).await.unwrap();
-        poll_for_confirmed_checkpoint(1).await;
 
         match wallet.get_balances() {
             Ok(data) => {
@@ -2646,6 +2645,15 @@ async fn test_withdraw() {
                 info!("Error: {:?}", e);
             }
         }
+
+        // Wait sometime for checkpoint to be broadcasted on the network
+        tokio::time::sleep(Duration::from_secs(5)).await;
+        btc_client
+            .generate_to_address(1, &async_wallet_address)
+            .await
+            .unwrap();
+        poll_for_bitcoin_header(1138).await.unwrap();
+        poll_for_confirmed_checkpoint(1).await;
 
         let expected_balance = 689958850000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
@@ -2664,17 +2672,17 @@ async fn test_withdraw() {
             .await
             .unwrap();
 
-        poll_for_bitcoin_header(1142).await.unwrap();
+        poll_for_bitcoin_header(1139).await.unwrap();
         poll_for_signing_checkpoint().await;
         poll_for_completed_checkpoint(3).await;
-        tokio::time::sleep(Duration::from_secs(15)).await;
 
+        // Wait sometime for checkpoint to be broadcasted on the network
+        tokio::time::sleep(Duration::from_secs(5)).await;
         btc_client
-            .generate_to_address(4, &async_wallet_address)
+            .generate_to_address(1, &async_wallet_address)
             .await
             .unwrap();
-
-        poll_for_bitcoin_header(1146).await.unwrap();
+        poll_for_bitcoin_header(1140).await.unwrap();
         poll_for_confirmed_checkpoint(2).await;
 
         deposit_bitcoin(
@@ -2689,7 +2697,7 @@ async fn test_withdraw() {
             .await
             .unwrap();
 
-        poll_for_bitcoin_header(1147).await.unwrap();
+        poll_for_bitcoin_header(1141).await.unwrap();
 
         // Lack of fee pool here, so i send more BTC to fee pool
         app_client()
@@ -2702,20 +2710,25 @@ async fn test_withdraw() {
 
         poll_for_signing_checkpoint().await;
         poll_for_completed_checkpoint(4).await;
-        tokio::time::sleep(Duration::from_secs(15)).await;
-
+        // Wait sometime for checkpoint to be broadcasted on the network
+        tokio::time::sleep(Duration::from_secs(5)).await;
         btc_client
-            .generate_to_address(4, &async_wallet_address)
+            .generate_to_address(1, &async_wallet_address)
             .await
             .unwrap();
-
-        poll_for_bitcoin_header(1151).await.unwrap();
+        poll_for_bitcoin_header(1142).await.unwrap();
         poll_for_confirmed_checkpoint(3).await;
 
-        let expected_balance = 1382883964000000;
+        let expected_balance = 1382919514000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
+        let simulate_withdrawal_fee = app_client()
+            .query(|app: InnerApp| {
+                Ok(app.withdrawal_fees(Adapter::new(withdraw_address.to_string()), None)?)
+            })
+            .await
+            .unwrap();
         // Withdraw all
         withdraw_bitcoin(
             &funded_accounts[0],
@@ -2739,30 +2752,15 @@ async fn test_withdraw() {
             .await
             .unwrap();
 
-        poll_for_bitcoin_header(1143).await.unwrap();
+        poll_for_bitcoin_header(1144).await.unwrap();
         poll_for_completed_checkpoint(5).await;
-        tokio::time::sleep(Duration::from_secs(15)).await;
 
-        btc_client
-            .generate_to_address(4, &async_wallet_address)
-            .await
-            .unwrap();
-
-        poll_for_bitcoin_header(1157).await.unwrap();
-        poll_for_confirmed_checkpoint(4).await;
-
-        let simulate_withdrawal_fee = app_client()
-            .query(|app: InnerApp| {
-                Ok(app.withdrawal_fees(Adapter::new(withdraw_address.to_string()), None)?)
-            })
-            .await
-            .unwrap();
         match wallet.get_balances() {
             Ok(data) => {
-                assert_eq!(simulate_withdrawal_fee, 5952000000);
+                assert_eq!(simulate_withdrawal_fee, 1240000000);
                 assert_eq!(
                     data.mine.untrusted_pending.to_sat() * 1000000,
-                    1299994048000000
+                    1299998760000000
                 );
             }
             Err(e) => {
@@ -2770,7 +2768,16 @@ async fn test_withdraw() {
             }
         }
 
-        let expected_balance = 82793964000000;
+        // Wait sometime for checkpoint to be broadcasted on the network
+        tokio::time::sleep(Duration::from_secs(5)).await;
+        btc_client
+            .generate_to_address(1, &async_wallet_address)
+            .await
+            .unwrap();
+        poll_for_bitcoin_header(1145).await.unwrap();
+        poll_for_confirmed_checkpoint(4).await;
+
+        let expected_balance = 82829514000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
@@ -3131,7 +3138,8 @@ async fn test_deposit_with_high_min_confirmations() {
         test_bitcoin_client(rpc_url.clone(), cookie_file.clone()).await,
         rpc_addr.clone(),
     );
-    let checkpoints_conf = relayer.start_checkpoint_conf_relay(DEFAULT_MAX_SCAN_CHECKPOINTS_CONFIRMATIONS);
+    let checkpoints_conf =
+        relayer.start_checkpoint_conf_relay(DEFAULT_MAX_SCAN_CHECKPOINTS_CONFIRMATIONS);
 
     let mut relayer = Relayer::new(
         test_bitcoin_client(rpc_url.clone(), cookie_file.clone()).await,
@@ -3296,14 +3304,14 @@ async fn test_deposit_with_high_min_confirmations() {
 
         // balance only gets updated after moving pass bitcoin header & checkpoint has completed
         poll_for_completed_checkpoint(1).await;
-         // Wait sometime for checkpoint to be broadcasted on the network
-         tokio::time::sleep(Duration::from_secs(5)).await;
-         btc_client
-             .generate_to_address(1, &async_wallet_address)
-             .await
-             .unwrap();
-         poll_for_bitcoin_header(1125).await.unwrap();
-         poll_for_confirmed_checkpoint(0).await;
+        // Wait sometime for checkpoint to be broadcasted on the network
+        tokio::time::sleep(Duration::from_secs(5)).await;
+        btc_client
+            .generate_to_address(1, &async_wallet_address)
+            .await
+            .unwrap();
+        poll_for_bitcoin_header(1125).await.unwrap();
+        poll_for_confirmed_checkpoint(0).await;
 
         // what does this do?
         tx.send(Some(())).await.unwrap();
