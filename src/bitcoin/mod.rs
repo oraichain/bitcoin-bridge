@@ -1097,7 +1097,7 @@ impl Bitcoin {
             confirmed_dests.push(dests);
         }
         if let Some(last_index) = unhandled_confirmed_cps.last() {
-            self.checkpoints.first_unhandled_confirmed_cp_index = *last_index;
+            self.checkpoints.first_unhandled_confirmed_cp_index = *last_index + 1;
         }
         Ok(confirmed_dests)
     }

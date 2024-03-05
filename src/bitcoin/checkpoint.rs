@@ -2389,10 +2389,15 @@ impl CheckpointQueue {
     }
 
     pub fn unhandled_confirmed(&self) -> Result<Vec<u32>> {
+        if self.confirmed_index.is_none() {
+            return Ok(vec![]);
+        }
+
         let mut out = vec![];
-        for i in self.first_unhandled_confirmed_cp_index..=self.index {
+        for i in self.first_unhandled_confirmed_cp_index..=self.confirmed_index.unwrap() {
             let cp = self.get(i)?;
-            if !matches!(cp.status, CheckpointStatus::Complete) || self.confirmed_index.is_none() {
+            if !matches!(cp.status, CheckpointStatus::Complete) {
+                log::warn!("Existing confirmed checkpoint without 'complete' status.");
                 break;
             }
             out.push(i);
