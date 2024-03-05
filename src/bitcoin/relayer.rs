@@ -627,7 +627,7 @@ impl Relayer {
 
         loop {
             let recovery_txs = app_client(&self.app_client_addr)
-                .query(|app| Ok(app.bitcoin.recovery_txs.signed()?))
+                .query(|app: InnerApp| Ok(app.bitcoin.recovery_txs.signed()?))
                 .await?;
             for signed_tx in recovery_txs.iter() {
                 if relayed.contains(&signed_tx.tx.txid()) {
@@ -805,7 +805,7 @@ impl Relayer {
             if initial_height - base_height >= maximum_blocks {
                 break;
             }
-            let blocks = self.last_n_blocks(num_blocks, tip).await?;
+            let blocks = self.last_n_blocks(num_blocks.min(base_height), tip).await?;
             for (i, block) in blocks.clone().into_iter().enumerate().rev() {
                 let height = (base_height - i) as u32;
                 for tx in block.txdata.iter() {

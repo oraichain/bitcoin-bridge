@@ -1158,6 +1158,10 @@ pub struct CheckpointQueue {
     #[orga(version(V2))]
     pub confirmed_index: Option<u32>,
 
+    // the first confirmed checkpoint that we have not handled its pending deposit
+    #[orga(version(V2))]
+    pub first_unhandled_confirmed_cp_index: u32,
+
     /// Configuration parameters used in processing checkpoints.
     pub config: Config,
 }
@@ -1175,6 +1179,7 @@ impl MigrateFrom<CheckpointQueueV1> for CheckpointQueueV2 {
             index: value.index,
             confirmed_index: None,
             config: value.config,
+            first_unhandled_confirmed_cp_index: 0,
         })
     }
 }
@@ -2381,6 +2386,23 @@ impl CheckpointQueue {
         } else {
             Ok(vec![])
         }
+    }
+
+    pub fn unhandled_confirmed(&self) -> Result<Vec<u32>> {
+        if self.confirmed_index.is_none() {
+            return Ok(vec![]);
+        }
+
+        let mut out = vec![];
+        for i in self.first_unhandled_confirmed_cp_index..=self.confirmed_index.unwrap() {
+            let cp = self.get(i)?;
+            if !matches!(cp.status, CheckpointStatus::Complete) {
+                log::warn!("Existing confirmed checkpoint without 'complete' status.");
+                break;
+            }
+            out.push(i);
+        }
+        Ok(out)
     }
 
     pub fn unconfirmed_fees_paid(&self) -> Result<u64> {
