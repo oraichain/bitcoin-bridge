@@ -1619,7 +1619,8 @@ async fn recover_expired_deposit() {
         test_bitcoin_client(rpc_url.clone(), cookie_file.clone()).await,
         rpc_addr.clone(),
     );
-    let checkpoints_conf = relayer.start_checkpoint_conf_relay(DEFAULT_MAX_SCAN_CHECKPOINTS_CONFIRMATIONS);
+    let checkpoints_conf =
+        relayer.start_checkpoint_conf_relay(DEFAULT_MAX_SCAN_CHECKPOINTS_CONFIRMATIONS);
 
     let mut relayer = Relayer::new(
         test_bitcoin_client(rpc_url.clone(), cookie_file.clone()).await,
@@ -3562,10 +3563,19 @@ async fn test_bitcoin_with_checkpoint_confirmation_relay() {
         // balance only gets updated after moving pass bitcoin header & checkpoint has completed
         poll_for_completed_checkpoint(1).await;
 
+        // Wait sometime for checkpoint to be broadcasted on the network
+        tokio::time::sleep(Duration::from_secs(5)).await;
+        btc_client
+            .generate_to_address(1, &async_wallet_address)
+            .await
+            .unwrap();
+        poll_for_bitcoin_header(1125).await.unwrap();
+        poll_for_confirmed_checkpoint(0).await;
+
         // what does this do?
         tx.send(Some(())).await.unwrap();
 
-        let expected_balance = 989996871600000;
+        let expected_balance = 989984200000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
@@ -3573,9 +3583,8 @@ async fn test_bitcoin_with_checkpoint_confirmation_relay() {
             .generate_to_address(3, &async_wallet_address)
             .await
             .unwrap();
-        poll_for_confirmed_checkpoint(0).await;
 
-        poll_for_bitcoin_header(1127).await.unwrap();
+        poll_for_bitcoin_header(1128).await.unwrap();
 
         deposit_bitcoin(
             &funded_accounts[1].address,
@@ -3590,17 +3599,26 @@ async fn test_bitcoin_with_checkpoint_confirmation_relay() {
             .await
             .unwrap();
 
-        poll_for_bitcoin_header(1131).await.unwrap();
+        poll_for_bitcoin_header(1132).await.unwrap();
         poll_for_completed_checkpoint(2).await;
 
-        let expected_balance = 39595307400000;
+        // Wait sometime for checkpoint to be broadcasted on the network
+        tokio::time::sleep(Duration::from_secs(5)).await;
+        btc_client
+            .generate_to_address(1, &async_wallet_address)
+            .await
+            .unwrap();
+        poll_for_bitcoin_header(1133).await.unwrap();
+        poll_for_confirmed_checkpoint(1).await;
+
+        let expected_balance = 39576300000000;
         let balance = poll_for_updated_balance(funded_accounts[1].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
         println!("prepare withdrawing bitcoin");
         withdraw_bitcoin(
             &funded_accounts[0],
-            bitcoin::Amount::from_sat(7000),
+            bitcoin::Amount::from_sat(12000),
             &withdraw_address,
         )
         .await
@@ -3610,7 +3628,7 @@ async fn test_bitcoin_with_checkpoint_confirmation_relay() {
             .with_wallet(funded_accounts[0].wallet.clone())
             .call(
                 move |app| build_call!(app.accounts.take_as_funding((MIN_FEE).into())),
-                move |app| build_call!(app.bitcoin.transfer_to_fee_pool(8000000000.into())),
+                move |app| build_call!(app.bitcoin.transfer_to_fee_pool(13000000000.into())),
             )
             .await?;
 
@@ -3619,14 +3637,15 @@ async fn test_bitcoin_with_checkpoint_confirmation_relay() {
             .await
             .unwrap();
 
-        poll_for_bitcoin_header(1135).await.unwrap();
+        poll_for_bitcoin_header(1137).await.unwrap();
         poll_for_completed_checkpoint(3).await;
-        poll_for_confirmed_checkpoint(1).await;
-
+        // Wait sometime for checkpoint to be broadcasted on the network
+        tokio::time::sleep(Duration::from_secs(5)).await;
         btc_client
             .generate_to_address(1, &async_wallet_address)
             .await
             .unwrap();
+        poll_for_bitcoin_header(1138).await.unwrap();
         poll_for_confirmed_checkpoint(2).await;
 
         let signer_jailed = app_client()
@@ -3641,7 +3660,7 @@ async fn test_bitcoin_with_checkpoint_confirmation_relay() {
             .unwrap();
         assert!(signer_jailed);
 
-        let expected_balance = 989981871600000;
+        let expected_balance = 989959200000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
         Err::<(), Error>(Error::Test("Test completed successfully".to_string()))
