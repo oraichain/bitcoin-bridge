@@ -642,8 +642,10 @@ mod abci {
             // }
 
             let pending_nbtc_transfers = self.bitcoin.take_pending()?;
-            for (dest, coins) in pending_nbtc_transfers {
-                self.credit_transfer(dest, coins)?;
+            for pending in pending_nbtc_transfers {
+                for (dest, coins) in pending {
+                    self.credit_transfer(dest, coins)?;
+                }
             }
 
             let external_outputs = if self.bitcoin.should_push_checkpoint()? {

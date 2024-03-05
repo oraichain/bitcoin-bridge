@@ -1075,25 +1075,31 @@ impl Bitcoin {
     ///
     /// This should be used to process the pending transfers, crediting each of
     /// them now that the checkpoint has been fully signed.
-    pub fn take_pending(&mut self) -> Result<Vec<(Dest, Coin<Nbtc>)>> {
-        if let Err(Error::Orga(OrgaError::App(err))) = self.checkpoints.last_completed_index() {
-            if err == "No completed checkpoints yet" {
-                return Ok(vec![]);
-            }
+    pub fn take_pending(&mut self) -> Result<Vec<Vec<(Dest, Coin<Nbtc>)>>> {
+        if let Some(err) = self.checkpoints.unhandled_confirmed().err() {
+            return Ok(vec![]);
         }
 
         // TODO: drain iter
-        let pending = &mut self.checkpoints.last_completed_mut()?.pending;
-        let keys = pending
-            .iter()?
-            .map(|entry| entry.map(|(dest, _)| dest.clone()).map_err(Error::from))
-            .collect::<Result<Vec<Dest>>>()?;
-        let mut dests = vec![];
-        for dest in keys {
-            let coins = pending.remove(dest.clone())?.unwrap().into_inner();
-            dests.push((dest, coins));
+        let mut confirmed_dests = vec![];
+        let unhandled_confirmed_cps = self.checkpoints.unhandled_confirmed()?;
+        for confirmed_index in unhandled_confirmed_cps.clone() {
+            let mut dests = vec![];
+            let pending = &mut self.checkpoints.get_mut(confirmed_index)?.pending;
+            let keys = pending
+                .iter()?
+                .map(|entry| entry.map(|(dest, _)| dest.clone()).map_err(Error::from))
+                .collect::<Result<Vec<Dest>>>()?;
+            for dest in keys {
+                let coins = pending.remove(dest.clone())?.unwrap().into_inner();
+                dests.push((dest, coins));
+            }
+            confirmed_dests.push(dests);
         }
-        Ok(dests)
+        if let Some(last_index) = unhandled_confirmed_cps.last() {
+            self.checkpoints.first_unhandled_confirmed_cp_index = *last_index;
+        }
+        Ok(confirmed_dests)
     }
 
     pub fn give_miner_fee(&mut self, coin: Coin<Nbtc>) -> Result<()> {
