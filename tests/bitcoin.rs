@@ -3131,6 +3131,12 @@ async fn test_deposit_with_high_min_confirmations() {
         test_bitcoin_client(rpc_url.clone(), cookie_file.clone()).await,
         rpc_addr.clone(),
     );
+    let checkpoints_conf = relayer.start_checkpoint_conf_relay(DEFAULT_MAX_SCAN_CHECKPOINTS_CONFIRMATIONS);
+
+    let mut relayer = Relayer::new(
+        test_bitcoin_client(rpc_url.clone(), cookie_file.clone()).await,
+        rpc_addr.clone(),
+    );
     let disbursal = relayer.start_emergency_disbursal_transaction_relay();
 
     let signer = async {
@@ -3268,7 +3274,6 @@ async fn test_deposit_with_high_min_confirmations() {
             .await
             .unwrap();
         poll_for_bitcoin_header(1121).await.unwrap();
-        info!("Check here");
         tokio::time::sleep(Duration::from_secs(30)).await;
         poll_for_completed_checkpoint(0).await; // still zero here
 
@@ -3291,6 +3296,14 @@ async fn test_deposit_with_high_min_confirmations() {
 
         // balance only gets updated after moving pass bitcoin header & checkpoint has completed
         poll_for_completed_checkpoint(1).await;
+         // Wait sometime for checkpoint to be broadcasted on the network
+         tokio::time::sleep(Duration::from_secs(5)).await;
+         btc_client
+             .generate_to_address(1, &async_wallet_address)
+             .await
+             .unwrap();
+         poll_for_bitcoin_header(1125).await.unwrap();
+         poll_for_confirmed_checkpoint(0).await;
 
         // what does this do?
         tx.send(Some(())).await.unwrap();
@@ -3308,6 +3321,7 @@ async fn test_deposit_with_high_min_confirmations() {
         headers,
         deposits,
         checkpoints,
+        checkpoints_conf,
         disbursal,
         signer,
         slashable_signer,
