@@ -7,8 +7,7 @@ use nomic::{
     app::{InnerApp, Nom},
     bitcoin::{
         adapter::Adapter,
-        calc_deposit_fee,
-        checkpoint::{BuildingCheckpoint, CheckpointQueue, Config as CheckpointConfig},
+        checkpoint::{CheckpointQueue, Config as CheckpointConfig},
         signatory::SignatorySet,
         Config, Nbtc,
     },
@@ -139,7 +138,7 @@ async fn validators(status: Option<String>) -> Value {
                  "key": base64::encode(cons_key)
              },
              "jailed": validator.jailed,
-             "status": validator_status,
+             "status": validator_status, 
              "tokens": validator.amount_staked.to_string(),
              "delegator_shares": validator.amount_staked.to_string(),
              "description": {
@@ -604,14 +603,14 @@ async fn bitcoin_checkpoint(checkpoint_index: u32) -> Result<Value, BadRequest<S
         .query(|app: InnerApp| {
             let checkpoint = app.bitcoin.checkpoints.get(checkpoint_index)?;
             let sigset = checkpoint.sigset.clone();
-            let building_checkpoint = checkpoint.checkpoint_tx()?;
+            let building_checkpoint = checkpoint.checkpoint_tx()?.into_inner();
             Ok((
                 checkpoint.fee_rate,
                 checkpoint.fees_collected,
                 checkpoint.status,
                 checkpoint.signed_at_btc_height,
                 sigset,
-                building_checkpoint
+                building_checkpoint,
             ))
         })
         .await
@@ -624,7 +623,10 @@ async fn bitcoin_checkpoint(checkpoint_index: u32) -> Result<Value, BadRequest<S
             "status": data.2,
             "signed_at_btc_height": data.3,
             "sigset": data.4,
-            "transaction_data": data.5,
+            "transaction": {
+                "hash": data.5.txid(),
+                "data": data.5,
+            },
         }
     }))
 }
@@ -661,7 +663,8 @@ async fn bitcoin_checkpoint_queue() -> Result<Value, BadRequest<String>> {
 
     Ok(json!({
         "index": checkpoint_queue.index,
-        "confirmed_index": checkpoint_queue.confirmed_index
+        "confirmed_index": checkpoint_queue.confirmed_index,
+        "first_unhandled_confirmed_cp_index": checkpoint_queue.first_unhandled_confirmed_cp_index
     }))
 }
 

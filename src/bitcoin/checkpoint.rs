@@ -833,7 +833,7 @@ impl Checkpoint {
         Ok(fees)
     }
 
-    fn base_fee(&self, config: &Config, timestamping_commitment: &[u8]) -> Result<u64> {
+    pub fn base_fee(&self, config: &Config, timestamping_commitment: &[u8]) -> Result<u64> {
         let est_vsize = self.est_vsize(config, timestamping_commitment)?;
         Ok(est_vsize * self.fee_rate)
     }
@@ -860,6 +860,23 @@ impl Checkpoint {
                 })?;
 
         Ok(vsize)
+    }
+
+    // This function will return total input amount and output amount in checkpoint transaction
+    pub fn calc_total_input_and_output(&self, config: &Config) -> Result<(u64, u64)> {
+        let mut in_amount = 0;
+        let checkpoint_batch = self.batches.get(BatchType::Checkpoint as u64)?.unwrap();
+        let checkpoint_tx = checkpoint_batch.get(0)?.unwrap();
+        for i in 0..config.max_inputs.min(checkpoint_tx.input.len()) {
+            let input = checkpoint_tx.input.get(i)?.unwrap();
+            in_amount += input.amount;
+        }
+        let mut out_amount = 0;
+        for i in 0..config.max_outputs.min(checkpoint_tx.output.len()) {
+            let output = checkpoint_tx.output.get(i)?.unwrap();
+            out_amount += output.value;
+        }
+        Ok((in_amount, out_amount))
     }
 
     fn additional_outputs(
@@ -2236,8 +2253,33 @@ impl CheckpointQueue {
             return Ok(false);
         }
 
+        // Do not push if input amount is greater than output amount
+        if !self.queue.is_empty() {
+            let total_fee = self
+                .calc_fee_building_checkpoint(timestamping_commitment)
+                .unwrap();
+            let current_building_checkpoint = self.building().unwrap();
+            let (input_amount, output_amount) = current_building_checkpoint
+                .calc_total_input_and_output(&self.config())
+                .unwrap();
+            if input_amount <= output_amount + total_fee {
+                return Ok(false);
+            }
+        }
+
         // Otherwise, push a new checkpoint.
         Ok(true)
+    }
+
+    pub fn calc_fee_building_checkpoint(&self, timestamping_commitment: &[u8]) -> Result<u64> {
+        let current_building_checkpoint = self.building().unwrap();
+        let additional_fees =
+            self.fee_adjustment(current_building_checkpoint.fee_rate, &self.config)?;
+        let base_fee =
+            current_building_checkpoint.base_fee(&self.config(), timestamping_commitment)?;
+        let total_fee = base_fee + additional_fees;
+
+        Ok(total_fee)
     }
 
     /// Pushes a new checkpoint to the queue, if the conditions are met.
@@ -3158,5 +3200,186 @@ mod test {
                 .unwrap(),
             sigset(1).redeem_script(&[0], (2, 3)).unwrap(),
         );
+    }
+
+    #[cfg(feature = "full")]
+    #[test]
+    #[serial_test::serial]
+    fn not_push_checkpoint_if_input_smaller_than_output() {
+        use orga::{collections::EntryMap, context::Context};
+
+        let paid = orga::plugins::Paid::default();
+        Context::add(paid);
+
+        let mut vals = orga::plugins::Validators::new(
+            Rc::new(RefCell::new(Some(EntryMap::new()))),
+            Rc::new(RefCell::new(None)),
+        );
+        vals.set_voting_power([0; 32], 100);
+        Context::add(vals);
+
+        let secp = Secp256k1::new();
+        let xpriv = ExtendedPrivKey::new_master(bitcoin::Network::Regtest, &[0]).unwrap();
+        let xpub = ExtendedPubKey::from_priv(&secp, &xpriv);
+
+        let mut sig_keys = Map::new();
+        sig_keys.insert([0; 32], Xpub::new(xpub)).unwrap();
+
+        let queue = Rc::new(RefCell::new(CheckpointQueue::default()));
+        queue.borrow_mut().config = Config {
+            min_fee_rate: 2,
+            max_fee_rate: 200,
+            target_checkpoint_inclusion: 2,
+            min_checkpoint_interval: 100,
+            max_unconfirmed_checkpoints: 2,
+            ..Default::default()
+        };
+
+        let set_time = |time| {
+            let time = orga::plugins::Time::from_seconds(time);
+            Context::add(time);
+        };
+        let mut fee_pool = 0;
+        let mut maybe_step = |btc_height| {
+            queue
+                .borrow_mut()
+                .maybe_step(
+                    &sig_keys,
+                    &Accounts::default(),
+                    &Map::new(),
+                    vec![Ok(bitcoin::TxOut {
+                        script_pubkey: Script::new(),
+                        value: 1_000_000,
+                    })]
+                    .into_iter(),
+                    btc_height,
+                    true,
+                    vec![1, 2, 3],
+                    &mut fee_pool,
+                    &super::super::Config::default(),
+                )
+                .unwrap();
+        };
+        let push_deposit = |amount: u64| {
+            let input = Input::new(
+                OutPoint {
+                    txid: Txid::from_slice(&[0; 32]).unwrap(),
+                    vout: 0,
+                },
+                &queue.borrow().building().unwrap().sigset,
+                &[0u8],
+                amount,
+                (9, 10),
+            )
+            .unwrap();
+            let mut queue = queue.borrow_mut();
+            let mut building_mut = queue.building_mut().unwrap();
+            building_mut.fees_collected = amount;
+            let mut building_checkpoint_batch = building_mut
+                .batches
+                .get_mut(BatchType::Checkpoint as u64)
+                .unwrap()
+                .unwrap();
+            let mut checkpoint_tx = building_checkpoint_batch.get_mut(0).unwrap().unwrap();
+            checkpoint_tx.input.push_back(input).unwrap();
+        };
+        let push_withdraw = |amount: u64| {
+            let output = bitcoin::TxOut {
+                value: amount,
+                ..Default::default()
+            };
+            let mut queue = queue.borrow_mut();
+            let mut building_mut = queue.building_mut().unwrap();
+            building_mut.fees_collected = amount;
+            let mut building_checkpoint_batch = building_mut
+                .batches
+                .get_mut(BatchType::Checkpoint as u64)
+                .unwrap()
+                .unwrap();
+            let mut checkpoint_tx = building_checkpoint_batch.get_mut(0).unwrap().unwrap();
+            checkpoint_tx
+                .output
+                .push_back(Adapter::new(output))
+                .unwrap();
+        };
+        let sign_batch = |btc_height| {
+            let mut queue = queue.borrow_mut();
+            let cp = queue.signing().unwrap().unwrap();
+            let sigset_index = cp.sigset.index;
+            let to_sign = cp.to_sign(Xpub::new(xpub.clone())).unwrap();
+            let secp2 = Secp256k1::signing_only();
+            let sigs = crate::bitcoin::signer::sign(&secp2, &xpriv, &to_sign).unwrap();
+            drop(cp);
+            queue
+                .sign(Xpub::new(xpub), sigs, sigset_index, btc_height)
+                .unwrap();
+        };
+        let sign_cp = |btc_height| {
+            sign_batch(btc_height);
+            sign_batch(btc_height);
+            if queue.borrow().signing().unwrap().is_some() {
+                sign_batch(btc_height);
+            }
+        };
+        let confirm_cp = |index, _btc_height| {
+            let mut queue = queue.borrow_mut();
+            queue.confirmed_index = Some(index);
+        };
+
+        assert_eq!(queue.borrow().len().unwrap(), 0);
+
+        set_time(0);
+        maybe_step(8);
+        set_time(100);
+        push_deposit(100_000_000);
+        {
+            let borrow_queue = queue.borrow();
+            let cp = borrow_queue.building().unwrap();
+            let (input_amount, output_amount) = cp
+                .calc_total_input_and_output(&borrow_queue.config)
+                .unwrap();
+            assert_eq!(input_amount, 100_000_000);
+            assert_eq!(output_amount, 0);
+        }
+        {
+            let is_should_push = queue
+                .borrow_mut()
+                .should_push(&sig_keys, &vec![0], 8)
+                .unwrap();
+            assert_eq!(is_should_push, true);
+        }
+        push_withdraw(99_988_350);
+        {
+            let is_should_push = queue
+                .borrow_mut()
+                .should_push(&sig_keys, &vec![0], 8)
+                .unwrap();
+            assert_eq!(is_should_push, false);
+        }
+        push_deposit(30_000_000);
+        maybe_step(8);
+        sign_cp(8);
+        confirm_cp(0, 9);
+
+        set_time(200);
+        maybe_step(9);
+        push_deposit(100_000_000);
+        push_withdraw(129_991_950);
+        {
+            let borrow_queue = queue.borrow();
+            let cp = borrow_queue.building().unwrap();
+            let (input_amount, output_amount) = cp
+                .calc_total_input_and_output(&borrow_queue.config)
+                .unwrap();
+            assert_eq!(input_amount, 129_991_950);
+            assert_eq!(output_amount, 129_991_950);
+        }
+        {
+            let is_should_push = queue
+                .borrow_mut()
+                .should_push(&sig_keys, &vec![0], 9)
+                .unwrap();
+            assert_eq!(is_should_push, false);
+        }
     }
 }
