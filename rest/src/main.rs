@@ -138,7 +138,7 @@ async fn validators(status: Option<String>) -> Value {
                  "key": base64::encode(cons_key)
              },
              "jailed": validator.jailed,
-             "status": validator_status, 
+             "status": validator_status,
              "tokens": validator.amount_staked.to_string(),
              "delegator_shares": validator.amount_staked.to_string(),
              "description": {
@@ -552,6 +552,23 @@ async fn bitcoin_value_locked() -> Value {
 
     json!({
         "value": value_locked
+    })
+}
+
+#[get("/bitcoin/building_checkpoint_fee_info")]
+async fn building_checkpoint_fee_info() -> Value {
+    let data = app_client()
+        .query(|app: InnerApp| {
+            let fees_collected = app.bitcoin.checkpoints.building()?.fees_collected;
+            let miner_fee = app.bitcoin.checkpoints.query_building_miner_fee([0; 32])?;
+            Ok((fees_collected, miner_fee))
+        })
+        .await
+        .unwrap();
+
+    json!({
+        "fees_collected": data.0,
+        "miner_fee": data.1
     })
 }
 
@@ -1701,7 +1718,8 @@ fn rocket() -> _ {
             bitcoin_sigset_with_index,
             bitcoin_minimum_deposit,
             bitcoin_minimum_withdrawal,
-            last_completed_checkpoint_tx
+            last_completed_checkpoint_tx,
+            building_checkpoint_fee_info
         ],
     )
 }
