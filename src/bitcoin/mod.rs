@@ -604,11 +604,11 @@ impl Bitcoin {
         }
         let output = &btc_tx.output[btc_vout as usize];
 
-        if output.value < self.config.min_deposit_amount {
-            return Err(OrgaError::App(
-                "Deposit amount is below minimum".to_string(),
-            ))?;
-        }
+        // if output.value < self.config.min_deposit_amount {
+        //     return Err(OrgaError::App(
+        //         "Deposit amount is below minimum".to_string(),
+        //     ))?;
+        // }
 
         let checkpoint = self.checkpoints.get(sigset_index)?;
         let sigset = checkpoint.sigset.clone();
@@ -805,12 +805,12 @@ impl Bitcoin {
         // TODO: record as collected for excess if full
 
         let value = Into::<u64>::into(coins.amount) / self.config.units_per_sat;
-        if value < self.config.min_withdrawal_amount {
-            return Err(OrgaError::App(
-                "Withdrawal is smaller than than minimum amount".to_string(),
-            )
-            .into());
-        }
+        // if value < self.config.min_withdrawal_amount {
+        //     return Err(OrgaError::App(
+        //         "Withdrawal is smaller than than minimum amount".to_string(),
+        //     )
+        //     .into());
+        // }
         if bitcoin::Amount::from_sat(value) <= script_pubkey.dust_value() {
             return Err(OrgaError::App(
                 "Withdrawal is too small to pay its dust limit".to_string(),
