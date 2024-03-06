@@ -555,12 +555,16 @@ async fn bitcoin_value_locked() -> Value {
     })
 }
 
-#[get("/bitcoin/building_checkpoint_fee_info")]
-async fn building_checkpoint_fee_info() -> Value {
+#[get("/bitcoin/building_checkpoint_fee_info?<checkpoint_index>")]
+async fn building_checkpoint_fee_info(checkpoint_index: Option<u32>) -> Value {
     let data = app_client()
         .query(|app: InnerApp| {
-            let fees_collected = app.bitcoin.checkpoints.building()?.fees_collected;
-            let miner_fee = app.bitcoin.checkpoints.query_building_miner_fee([0; 32])?;
+            let cp_index = checkpoint_index.unwrap_or(app.bitcoin.checkpoints.index);
+            let fees_collected = app.bitcoin.checkpoints.get(cp_index)?.fees_collected;
+            let miner_fee = app
+                .bitcoin
+                .checkpoints
+                .query_building_miner_fee(cp_index, [0; 32])?;
             Ok((fees_collected, miner_fee))
         })
         .await

@@ -865,15 +865,25 @@ impl Checkpoint {
     // This function will return total input amount and output amount in checkpoint transaction
     pub fn calc_total_input_and_output(&self, config: &Config) -> Result<(u64, u64)> {
         let mut in_amount = 0;
-        let checkpoint_batch = self.batches.get(BatchType::Checkpoint as u64)?.unwrap();
-        let checkpoint_tx = checkpoint_batch.get(0)?.unwrap();
+        let checkpoint_batch = self
+            .batches
+            .get(BatchType::Checkpoint as u64)?
+            .ok_or(OrgaError::App("Cannot get batch checkpoint".to_string()))?;
+        let checkpoint_tx = checkpoint_batch
+            .get(0)?
+            .ok_or(OrgaError::App("Cannot get checkpoint tx".to_string()))?;
         for i in 0..config.max_inputs.min(checkpoint_tx.input.len()) {
-            let input = checkpoint_tx.input.get(i)?.unwrap();
+            let input = checkpoint_tx
+                .input
+                .get(i)?
+                .ok_or(OrgaError::App("Cannot get checkpoint tx input".to_string()))?;
             in_amount += input.amount;
         }
         let mut out_amount = 0;
         for i in 0..config.max_outputs.min(checkpoint_tx.output.len()) {
-            let output = checkpoint_tx.output.get(i)?.unwrap();
+            let output = checkpoint_tx.output.get(i)?.ok_or(OrgaError::App(
+                "Cannot get checkpoint tx output".to_string(),
+            ))?;
             out_amount += output.value;
         }
         Ok((in_amount, out_amount))
@@ -1609,14 +1619,12 @@ impl<'a> BuildingCheckpointMut<'a> {
         recovery_scripts: &Map<orga::coins::Address, Adapter<bitcoin::Script>>,
         external_outputs: impl Iterator<Item = Result<bitcoin::TxOut>>,
         timestamping_commitment: Vec<u8>,
-        additional_fees: u64,
+        cp_fees: u64,
         config: &Config,
     ) -> Result<BuildingAdvanceRes> {
         self.0.status = CheckpointStatus::Signing;
 
         let outs = self.additional_outputs(config, &timestamping_commitment)?;
-        let base_fee = self.base_fee(config, &timestamping_commitment)?;
-
         let mut checkpoint_batch = self.batches.get_mut(BatchType::Checkpoint as u64)?.unwrap();
         let mut checkpoint_tx = checkpoint_batch.get_mut(0)?.unwrap();
         for out in outs.iter().rev() {
@@ -1651,15 +1659,9 @@ impl<'a> BuildingCheckpointMut<'a> {
 
         // Deduct the outgoing amount and calculated fee amount from the reserve
         // input amount, to set the resulting reserve output value.
-        let fee = base_fee + additional_fees;
-        let reserve_value = in_amount.checked_sub(out_amount + fee).unwrap_or_default();
-        if reserve_value == 0 {
-            log::error!(
-                "Insufficient funds to cover fees with in amount: {}, and out amount: {}",
-                in_amount,
-                out_amount
-            );
-        }
+        let reserve_value = in_amount.checked_sub(out_amount + cp_fees).ok_or_else(|| {
+            OrgaError::App("Insufficient reserve value to cover miner fees".to_string())
+        })?;
         let mut reserve_out = checkpoint_tx.output.get_mut(0)?.unwrap();
         reserve_out.value = reserve_value;
 
@@ -1697,7 +1699,7 @@ impl<'a> BuildingCheckpointMut<'a> {
         Ok((
             reserve_outpoint,
             reserve_value,
-            fee,
+            cp_fees,
             excess_inputs,
             excess_outputs,
         ))
@@ -2048,11 +2050,11 @@ impl CheckpointQueue {
         self.prune()?;
 
         if self.index > 0 {
-            let prev = self.get(self.index - 1)?;
-            let additional_fees = self.fee_adjustment(prev.fee_rate, &self.config)?;
+            let prev_index = self.index - 1;
+            let cp_fees = self.calc_fee_checkpoint(prev_index, &timestamping_commitment)?;
 
             let config = self.config();
-            let prev = self.get_mut(self.index - 1)?;
+            let prev = self.get_mut(prev_index)?;
             let sigset = prev.sigset.clone();
             let prev_fee_rate = prev.fee_rate;
 
@@ -2062,7 +2064,7 @@ impl CheckpointQueue {
                     recovery_scripts,
                     external_outputs,
                     timestamping_commitment,
-                    additional_fees,
+                    cp_fees,
                     &config,
                 )?;
             *fee_pool -= (fees_paid * parent_config.units_per_sat) as i64;
@@ -2181,15 +2183,15 @@ impl CheckpointQueue {
                     return Ok(false);
                 }
             }
+            let cp_miner_fees = self.calc_fee_checkpoint(self.index, timestamping_commitment)?;
+            let building = self.building()?;
 
             // Don't push if there are no pending deposits, withdrawals, or
             // transfers, or if not enough has been collected to pay for the
             // miner fee, unless the maximum checkpoint interval has elapsed
             // since creating the current `Building` checkpoint.
             if elapsed < self.config.max_checkpoint_interval || self.index == 0 {
-                let building = self.building()?;
                 let checkpoint_tx = building.checkpoint_tx()?;
-
                 let has_pending_deposit = if self.index == 0 {
                     !checkpoint_tx.input.is_empty()
                 } else {
@@ -2203,16 +2205,28 @@ impl CheckpointQueue {
                     return Ok(false);
                 }
 
-                let miner_fee = building.base_fee(&self.config, timestamping_commitment)?
-                    + self.fee_adjustment(building.fee_rate, &self.config)?;
-                if building.fees_collected < miner_fee {
-                    log::info!(
+                if building.fees_collected < cp_miner_fees {
+                    log::warn!(
                         "Not enough collected to pay miner fee: {} < {}",
                         building.fees_collected,
-                        miner_fee,
+                        cp_miner_fees,
                     );
                     return Ok(false);
                 }
+            }
+
+            // Do not push if the reserve value is not enough to spend the output & miner fees
+            let (input_amount, output_amount) =
+                building.calc_total_input_and_output(&self.config)?;
+            if input_amount < output_amount + cp_miner_fees {
+                log::warn!(
+                    "Total reserve value is not enough to spend the output + miner fee: {} < {}. Output amount: {}; cp_miner_fees: {}",
+                    input_amount,
+                    output_amount + cp_miner_fees,
+                    output_amount,
+                    cp_miner_fees
+                );
+                return Ok(false);
             }
         }
 
@@ -2253,30 +2267,18 @@ impl CheckpointQueue {
             return Ok(false);
         }
 
-        // Do not push if input amount is greater than output amount
-        if !self.queue.is_empty() {
-            let total_fee = self
-                .calc_fee_building_checkpoint(timestamping_commitment)
-                .unwrap();
-            let current_building_checkpoint = self.building().unwrap();
-            let (input_amount, output_amount) = current_building_checkpoint
-                .calc_total_input_and_output(&self.config())
-                .unwrap();
-            if input_amount <= output_amount + total_fee {
-                return Ok(false);
-            }
-        }
-
         // Otherwise, push a new checkpoint.
         Ok(true)
     }
 
-    pub fn calc_fee_building_checkpoint(&self, timestamping_commitment: &[u8]) -> Result<u64> {
-        let current_building_checkpoint = self.building().unwrap();
-        let additional_fees =
-            self.fee_adjustment(current_building_checkpoint.fee_rate, &self.config)?;
-        let base_fee =
-            current_building_checkpoint.base_fee(&self.config(), timestamping_commitment)?;
+    pub fn calc_fee_checkpoint(
+        &self,
+        cp_index: u32,
+        timestamping_commitment: &[u8],
+    ) -> Result<u64> {
+        let cp = self.get(cp_index)?;
+        let additional_fees = self.fee_adjustment(cp.fee_rate, &self.config)?;
+        let base_fee = cp.base_fee(&self.config, timestamping_commitment)?;
         let total_fee = base_fee + additional_fees;
 
         Ok(total_fee)
@@ -2379,8 +2381,12 @@ impl CheckpointQueue {
 
     /// Query building miner fee for checking with fee_collected
     #[query]
-    pub fn query_building_miner_fee(&self, timestamping_commitment: [u8; 32]) -> Result<u64> {
-        self.calc_fee_building_checkpoint(&timestamping_commitment)
+    pub fn query_building_miner_fee(
+        &self,
+        cp_index: u32,
+        timestamping_commitment: [u8; 32],
+    ) -> Result<u64> {
+        self.calc_fee_checkpoint(cp_index, &timestamping_commitment)
     }
 
     /// The number of completed checkpoints which have not yet been confirmed on
@@ -3331,9 +3337,16 @@ mod test {
             }
             println!("init_array: {:?}", init_array);
             println!("fake_timestamp_commitment: {:?}", fake_timestamp_commitment);
-            assert_eq!(borrow_queue.calc_fee_building_checkpoint(&init_array).unwrap(), borrow_queue.calc_fee_building_checkpoint(&fake_timestamp_commitment).unwrap());
+            assert_eq!(
+                borrow_queue
+                    .calc_fee_checkpoint(borrow_queue.index, &init_array)
+                    .unwrap(),
+                borrow_queue
+                    .calc_fee_checkpoint(borrow_queue.index, &fake_timestamp_commitment)
+                    .unwrap()
+            );
         }
-    } 
+    }
 
     #[cfg(feature = "full")]
     #[test]
@@ -3481,13 +3494,14 @@ mod test {
                 .unwrap();
             assert_eq!(is_should_push, true);
         }
+        // we accept input = output + fees
         push_withdraw(99_988_350);
         {
             let is_should_push = queue
                 .borrow_mut()
                 .should_push(&sig_keys, &vec![0], 8)
                 .unwrap();
-            assert_eq!(is_should_push, false);
+            assert_eq!(is_should_push, true);
         }
         push_deposit(30_000_000);
         maybe_step(8);
