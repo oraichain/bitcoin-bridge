@@ -140,8 +140,8 @@ denominator = '3'
 #     a_side: ChannelSide {
 #         chain: BaseChainHandle {
 #             chain_id: ChainId {
-#                 id: "oraibtc-testnet-2",
-#                 version: 2,
+#                 id: "oraibtc-mainnet-1",
+#                 version: 1,
 #             },
 #             runtime_sender: Sender { .. },
 #         },
@@ -170,17 +170,17 @@ denominator = '3'
 #             runtime_sender: Sender { .. },
 #         },
 #         client_id: ClientId(
-#             "07-tendermint-150",
+#             "07-tendermint-185",
 #         ),
 #         connection_id: ConnectionId(
-#             "connection-114",
+#             "connection-149",
 #         ),
 #         port_id: PortId(
 #             "wasm.orai195269awwnt5m6c843q6w7hp8rt0k7syfu9de4h0wz384slshuzps8y7ccm",
 #         ),
 #         channel_id: Some(
 #             ChannelId(
-#                 "channel-184",
+#                 "channel-227",
 #             ),
 #         ),
 #         version: None,

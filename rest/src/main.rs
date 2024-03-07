@@ -7,8 +7,7 @@ use nomic::{
     app::{InnerApp, Nom},
     bitcoin::{
         adapter::Adapter,
-        calc_deposit_fee,
-        checkpoint::{BuildingCheckpoint, CheckpointQueue, Config as CheckpointConfig},
+        checkpoint::{CheckpointQueue, Config as CheckpointConfig},
         signatory::SignatorySet,
         Config, Nbtc,
     },
@@ -556,6 +555,27 @@ async fn bitcoin_value_locked() -> Value {
     })
 }
 
+#[get("/bitcoin/checkpoint_fee_info?<checkpoint_index>")]
+async fn checkpoint_fee_info(checkpoint_index: Option<u32>) -> Value {
+    let data = app_client()
+        .query(|app: InnerApp| {
+            let cp_index = checkpoint_index.unwrap_or(app.bitcoin.checkpoints.index);
+            let fees_collected = app.bitcoin.checkpoints.get(cp_index)?.fees_collected;
+            let miner_fee = app
+                .bitcoin
+                .checkpoints
+                .query_building_miner_fee(cp_index, [0; 32])?;
+            Ok((fees_collected, miner_fee))
+        })
+        .await
+        .unwrap();
+
+    json!({
+        "fees_collected": data.0,
+        "miner_fee": data.1
+    })
+}
+
 #[get("/bitcoin/deposit_fees?<checkpoint_index>")]
 async fn bitcoin_minimum_deposit(
     checkpoint_index: Option<u32>,
@@ -604,14 +624,14 @@ async fn bitcoin_checkpoint(checkpoint_index: u32) -> Result<Value, BadRequest<S
         .query(|app: InnerApp| {
             let checkpoint = app.bitcoin.checkpoints.get(checkpoint_index)?;
             let sigset = checkpoint.sigset.clone();
-            let building_checkpoint = checkpoint.checkpoint_tx()?;
+            let building_checkpoint = checkpoint.checkpoint_tx()?.into_inner();
             Ok((
                 checkpoint.fee_rate,
                 checkpoint.fees_collected,
                 checkpoint.status,
                 checkpoint.signed_at_btc_height,
                 sigset,
-                building_checkpoint
+                building_checkpoint,
             ))
         })
         .await
@@ -624,7 +644,10 @@ async fn bitcoin_checkpoint(checkpoint_index: u32) -> Result<Value, BadRequest<S
             "status": data.2,
             "signed_at_btc_height": data.3,
             "sigset": data.4,
-            "transaction_data": data.5,
+            "transaction": {
+                "hash": data.5.txid(),
+                "data": data.5,
+            },
         }
     }))
 }
@@ -661,7 +684,8 @@ async fn bitcoin_checkpoint_queue() -> Result<Value, BadRequest<String>> {
 
     Ok(json!({
         "index": checkpoint_queue.index,
-        "confirmed_index": checkpoint_queue.confirmed_index
+        "confirmed_index": checkpoint_queue.confirmed_index,
+        "first_unhandled_confirmed_cp_index": checkpoint_queue.first_unhandled_confirmed_cp_index
     }))
 }
 
@@ -1698,7 +1722,8 @@ fn rocket() -> _ {
             bitcoin_sigset_with_index,
             bitcoin_minimum_deposit,
             bitcoin_minimum_withdrawal,
-            last_completed_checkpoint_tx
+            last_completed_checkpoint_tx,
+            checkpoint_fee_info
         ],
     )
 }
