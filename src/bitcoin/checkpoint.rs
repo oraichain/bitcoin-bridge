@@ -10,8 +10,7 @@ use crate::{
     app::Dest,
     bitcoin::{signatory::derive_pubkey, Nbtc},
     constants::{
-        EMERGENCY_DISBURSAL_LOCK_TIME_INTERVAL, MAX_CHECKPOINT_AGE, MAX_CHECKPOINT_INTERVAL,
-        MAX_FEE_RATE, MIN_FEE_RATE, USER_FEE_FACTOR,
+        MAX_CHECKPOINT_AGE, MAX_CHECKPOINT_INTERVAL, MAX_FEE_RATE, MIN_FEE_RATE, USER_FEE_FACTOR,
     },
 };
 use crate::{
@@ -1023,14 +1022,14 @@ impl MigrateFrom<ConfigV0> for ConfigV1 {
             max_inputs: value.max_inputs,
             max_outputs: value.max_outputs,
             max_age: value.max_age,
-            target_checkpoint_inclusion: ConfigV3::default().target_checkpoint_inclusion,
-            min_fee_rate: ConfigV3::default().min_fee_rate,
-            max_fee_rate: ConfigV3::default().max_fee_rate,
-            sigset_threshold: ConfigV3::default().sigset_threshold,
-            emergency_disbursal_min_tx_amt: ConfigV3::default().emergency_disbursal_min_tx_amt,
-            emergency_disbursal_lock_time_interval: ConfigV3::default()
+            target_checkpoint_inclusion: Config::default().target_checkpoint_inclusion,
+            min_fee_rate: Config::default().min_fee_rate,
+            max_fee_rate: Config::default().max_fee_rate,
+            sigset_threshold: Config::default().sigset_threshold,
+            emergency_disbursal_min_tx_amt: Config::default().emergency_disbursal_min_tx_amt,
+            emergency_disbursal_lock_time_interval: Config::default()
                 .emergency_disbursal_lock_time_interval,
-            emergency_disbursal_max_tx_size: ConfigV3::default().emergency_disbursal_max_tx_size,
+            emergency_disbursal_max_tx_size: Config::default().emergency_disbursal_max_tx_size,
         })
     }
 }
@@ -1050,7 +1049,7 @@ impl MigrateFrom<ConfigV1> for ConfigV2 {
             emergency_disbursal_min_tx_amt: value.emergency_disbursal_min_tx_amt,
             emergency_disbursal_lock_time_interval: value.emergency_disbursal_lock_time_interval,
             emergency_disbursal_max_tx_size: value.emergency_disbursal_max_tx_size,
-            max_unconfirmed_checkpoints: ConfigV3::default().max_unconfirmed_checkpoints,
+            max_unconfirmed_checkpoints: Config::default().max_unconfirmed_checkpoints,
         })
     }
 }
@@ -1077,7 +1076,7 @@ impl MigrateFrom<ConfigV2> for ConfigV3 {
             max_unconfirmed_checkpoints: 15,
             #[cfg(not(feature = "testnet"))]
             max_unconfirmed_checkpoints: 10,
-            ..Default::default()
+            user_fee_factor: Config::default().user_fee_factor,
         })
     }
 }
@@ -1098,7 +1097,7 @@ impl MigrateFrom<ConfigV3> for ConfigV4 {
             #[cfg(feature = "testnet")]
             emergency_disbursal_lock_time_interval: 60 * 60 * 24 * 7,
             #[cfg(not(feature = "testnet"))]
-            emergency_disbursal_lock_time_interval: EMERGENCY_DISBURSAL_LOCK_TIME_INTERVAL, // 8 weeks
+            emergency_disbursal_lock_time_interval: 60 * 60 * 24 * 7 * 8, // 8 weeks
             emergency_disbursal_max_tx_size: value.emergency_disbursal_max_tx_size,
             #[cfg(feature = "testnet")]
             max_unconfirmed_checkpoints: 15,
@@ -1137,7 +1136,7 @@ impl Config {
             #[cfg(feature = "testnet")]
             emergency_disbursal_lock_time_interval: 60 * 60 * 24 * 7, // one week
             #[cfg(not(feature = "testnet"))]
-            emergency_disbursal_lock_time_interval: 60 * 60 * 24 * 7 * 2, // two weeks
+            emergency_disbursal_lock_time_interval: 60 * 60 * 24 * 7 * 8, // 8 weeks
             emergency_disbursal_max_tx_size: 50_000,
             max_unconfirmed_checkpoints: 15,
         }
@@ -2707,9 +2706,9 @@ mod test {
         let config = Config::default();
         assert_eq!(super::adjust_fee_rate(100, true, &config), 125);
         assert_eq!(super::adjust_fee_rate(100, false, &config), 75);
-        assert_eq!(super::adjust_fee_rate(2, true, &config), 3);
-        assert_eq!(super::adjust_fee_rate(0, true, &config), 2);
-        assert_eq!(super::adjust_fee_rate(2, false, &config), 2);
+        assert_eq!(super::adjust_fee_rate(2, true, &config), 20);
+        assert_eq!(super::adjust_fee_rate(0, true, &config), 20);
+        assert_eq!(super::adjust_fee_rate(2, false, &config), 20);
         assert_eq!(super::adjust_fee_rate(200, true, &config), 200);
         assert_eq!(super::adjust_fee_rate(300, true, &config), 200);
     }

@@ -13,7 +13,6 @@ pub const TRANSFER_FEE: u64 = 0;
 pub const MAX_CHECKPOINT_INTERVAL: u64 = 60 * 60 * 24 * 12; // 12 days. This value should be smaller than max_deposit_age & MAX_CHECKPOINT_AGE
 pub const MAX_DEPOSIT_AGE: u64 = 60 * 60 * 24 * 7 * 2; // 2 weeks
 pub const MAX_CHECKPOINT_AGE: u64 = 60 * 60 * 24 * 7 * 3; // 3 weeks
-pub const EMERGENCY_DISBURSAL_LOCK_TIME_INTERVAL: u64 = 60 * 60 * 24 * 7 * 8; // 8 weeks, should be greatly larger than max checkpoint age
 
 // app constants
 pub const IBC_FEE_USATS: u64 = 0;
