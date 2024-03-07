@@ -555,8 +555,8 @@ async fn bitcoin_value_locked() -> Value {
     })
 }
 
-#[get("/bitcoin/building_checkpoint_fee_info?<checkpoint_index>")]
-async fn building_checkpoint_fee_info(checkpoint_index: Option<u32>) -> Value {
+#[get("/bitcoin/checkpoint_fee_info?<checkpoint_index>")]
+async fn checkpoint_fee_info(checkpoint_index: Option<u32>) -> Value {
     let data = app_client()
         .query(|app: InnerApp| {
             let cp_index = checkpoint_index.unwrap_or(app.bitcoin.checkpoints.index);
@@ -1723,7 +1723,7 @@ fn rocket() -> _ {
             bitcoin_minimum_deposit,
             bitcoin_minimum_withdrawal,
             last_completed_checkpoint_tx,
-            building_checkpoint_fee_info
+            checkpoint_fee_info
         ],
     )
 }
