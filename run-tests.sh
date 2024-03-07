@@ -19,7 +19,7 @@ cargo fmt --all -- --check
 cargo clippy --no-default-features --features=full,feat-ibc,testnet -- -D warnings
 
 # test bitcoin
-# RUST_LOG=info cargo test --verbose --features full,feat-ibc,testnet,faucet-test,devnet --test bitcoin -- --ignored
-# RUST_LOG=info cargo test --verbose --features full,feat-ibc,testnet,faucet-test,devnet --test header_queue -- --ignored
-# RUST_LOG=info cargo test --verbose --features full,feat-ibc,testnet,faucet-test,devnet --test node -- --ignored
-# RUST_LOG=info cargo test --verbose --features full,feat-ibc,testnet,faucet-test,devnet --test relayer -- --ignored
+RUST_LOG=info cargo test --verbose --features full,feat-ibc,testnet,faucet-test,devnet --test bitcoin -- --ignored
+RUST_LOG=info cargo test --verbose --features full,feat-ibc,testnet,faucet-test,devnet --test header_queue -- --ignored
+RUST_LOG=info cargo test --verbose --features full,feat-ibc,testnet,faucet-test,devnet --test node -- --ignored
+RUST_LOG=info cargo test --verbose --features full,feat-ibc,testnet,faucet-test,devnet --test relayer -- --ignored
