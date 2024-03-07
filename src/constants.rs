@@ -1,6 +1,6 @@
 pub const MAIN_NATIVE_TOKEN_DENOM: &str = "uoraibtc";
 pub const BTC_NATIVE_TOKEN_DENOM: &str = "usat";
-pub const MIN_FEE_RATE: u64 = 2; // in satoshis per vbytes
+pub const MIN_FEE_RATE: u64 = 20; // in satoshis per vbytes
 pub const MAX_FEE_RATE: u64 = 200; // in satoshis per vbytes
 pub const USER_FEE_FACTOR: u64 = 21000; // 2.1x. Calculate by USER_FEE_FACTOR / 10000
 pub const IBC_FEE: u64 = 0;
@@ -8,6 +8,12 @@ pub const IBC_FEE: u64 = 0;
 pub const DEFAULT_FEE_RATE: u64 = 50;
 pub const BRIDGE_FEE_RATE: f64 = 0.0;
 pub const TRANSFER_FEE: u64 = 0;
+
+// checkpoints
+pub const MAX_CHECKPOINT_INTERVAL: u64 = 60 * 60 * 24 * 12; // 12 days. This value should be smaller than max_deposit_age & MAX_CHECKPOINT_AGE
+pub const MAX_DEPOSIT_AGE: u64 = 60 * 60 * 24 * 7 * 2; // 2 weeks
+pub const MAX_CHECKPOINT_AGE: u64 = 60 * 60 * 24 * 7 * 3; // 3 weeks
+pub const EMERGENCY_DISBURSAL_LOCK_TIME_INTERVAL: u64 = 60 * 60 * 24 * 7 * 8; // 8 weeks, should be greatly larger than max checkpoint age
 
 // app constants
 pub const IBC_FEE_USATS: u64 = 0;

@@ -4,7 +4,8 @@ use self::threshold_sig::Signature;
 use crate::app::Dest;
 use crate::bitcoin::checkpoint::BatchType;
 use crate::constants::{
-    BTC_NATIVE_TOKEN_DENOM, MIN_DEPOSIT_AMOUNT, MIN_WITHDRAWAL_AMOUNT, TRANSFER_FEE,
+    BTC_NATIVE_TOKEN_DENOM, MAX_DEPOSIT_AGE, MIN_DEPOSIT_AMOUNT, MIN_WITHDRAWAL_AMOUNT,
+    TRANSFER_FEE,
 };
 use crate::error::{Error, Result};
 use adapter::Adapter;
@@ -237,8 +238,8 @@ impl Config {
             capacity_limit: 100 * 100_000_000, // 100 BTC
             #[cfg(not(feature = "testnet"))]
             capacity_limit: 21 * 100_000_000, // 21 BTC
-            max_deposit_age: 60 * 60 * 24 * 7 * 2, // 2 weeks. Initially there may not be many deposits & withdraws
-            fee_pool_target_balance: 100_000_000,  // 1 BTC
+            max_deposit_age: MAX_DEPOSIT_AGE, // 2 weeks. Initially there may not be many deposits & withdraws
+            fee_pool_target_balance: 100_000_000, // 1 BTC
             fee_pool_reward_split: (1, 10),
         }
     }
