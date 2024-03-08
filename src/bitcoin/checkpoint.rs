@@ -917,7 +917,7 @@ impl Checkpoint {
 }
 
 /// Configuration parameters used in processing checkpoints.
-#[orga(skip(Default), version = 4)]
+#[orga(skip(Default), version = 5)]
 #[derive(Clone)]
 pub struct Config {
     /// The minimum amount of time between the creation of checkpoints, in
@@ -976,17 +976,17 @@ pub struct Config {
     /// will be adjusted up if the checkpoint transaction is not confirmed
     /// within the target number of blocks, and will be adjusted down if the
     /// checkpoint transaction faster than the target.
-    #[orga(version(V1, V2, V3, V4))]
+    #[orga(version(V1, V2, V3, V4, V5))]
     pub target_checkpoint_inclusion: u32,
 
     /// The lower bound to use when adjusting the fee rate of the checkpoint
     /// transaction, in satoshis per virtual byte.
-    #[orga(version(V1, V2, V3, V4))]
+    #[orga(version(V1, V2, V3, V4, V5))]
     pub min_fee_rate: u64,
 
     /// The upper bound to use when adjusting the fee rate of the checkpoint
     /// transaction, in satoshis per virtual byte.
-    #[orga(version(V1, V2, V3, V4))]
+    #[orga(version(V1, V2, V3, V4, V5))]
     pub max_fee_rate: u64,
 
     /// The value (in basis points) to multiply by when calculating the miner
@@ -996,24 +996,24 @@ pub struct Config {
     /// The difference in the fee deducted and the fee paid in the checkpoint
     /// transaction is added to the fee pool, to help the network pay for
     /// its own miner fees.
-    #[orga(version(V3, V4))]
+    #[orga(version(V3, V4, V5))]
     pub user_fee_factor: u64,
 
     /// The threshold of signatures required to spend reserve scripts, as a
     /// ratio represented by a tuple, `(numerator, denominator)`.
     ///
     /// For example, `(9, 10)` means the threshold is 90% of the signatory set.
-    #[orga(version(V1, V2, V3, V4))]
+    #[orga(version(V1, V2, V3, V4, V5))]
     pub sigset_threshold: (u64, u64),
 
     /// The minimum amount of nBTC an account must hold to be eligible for an
     /// output in the emergency disbursal.
-    #[orga(version(V1, V2, V3, V4))]
+    #[orga(version(V1, V2, V3, V4, V5))]
     pub emergency_disbursal_min_tx_amt: u64,
 
     /// The amount of time between the creation of a checkpoint and when the
     /// associated emergency disbursal transactions can be spent, in seconds.
-    #[orga(version(V1, V2, V3, V4))]
+    #[orga(version(V1, V2, V3, V4, V5))]
     pub emergency_disbursal_lock_time_interval: u32,
 
     /// The maximum size of a final emergency disbursal transaction, in virtual
@@ -1021,7 +1021,7 @@ pub struct Config {
     ///
     /// The outputs to be included in final emergency disbursal transactions
     /// will be distributed across multiple transactions around this size.
-    #[orga(version(V1, V2, V3, V4))]
+    #[orga(version(V1, V2, V3, V4, V5))]
     pub emergency_disbursal_max_tx_size: u64,
 
     /// The maximum number of unconfirmed checkpoints before the network will
@@ -1037,7 +1037,7 @@ pub struct Config {
     /// This will also stop the fee rate from being adjusted too high if the
     /// issue is simply with relayers failing to report the confirmation of the
     /// checkpoint transactions.
-    #[orga(version(V2, V3, V4))]
+    #[orga(version(V2, V3, V4, V5))]
     pub max_unconfirmed_checkpoints: u32,
 }
 
@@ -1130,7 +1130,31 @@ impl MigrateFrom<ConfigV3> for ConfigV4 {
             max_unconfirmed_checkpoints: 15,
             #[cfg(not(feature = "testnet"))]
             max_unconfirmed_checkpoints: 10,
-            ..Default::default()
+            user_fee_factor: value.user_fee_factor,
+        })
+    }
+}
+
+impl MigrateFrom<ConfigV4> for ConfigV5 {
+    fn migrate_from(value: ConfigV4) -> OrgaResult<Self> {
+        Ok(Self {
+            min_checkpoint_interval: value.min_checkpoint_interval,
+            max_checkpoint_interval: value.max_checkpoint_interval,
+            max_inputs: value.max_inputs,
+            max_outputs: value.max_outputs,
+            max_age: value.max_age,
+            target_checkpoint_inclusion: value.target_checkpoint_inclusion,
+            min_fee_rate: value.min_fee_rate,
+            max_fee_rate: value.max_fee_rate,
+            sigset_threshold: value.sigset_threshold,
+            emergency_disbursal_min_tx_amt: value.emergency_disbursal_min_tx_amt,
+            emergency_disbursal_lock_time_interval: value.emergency_disbursal_lock_time_interval,
+            emergency_disbursal_max_tx_size: value.emergency_disbursal_max_tx_size,
+            #[cfg(feature = "testnet")]
+            max_unconfirmed_checkpoints: 15,
+            #[cfg(not(feature = "testnet"))]
+            max_unconfirmed_checkpoints: 1000,
+            user_fee_factor: value.user_fee_factor,
         })
     }
 }

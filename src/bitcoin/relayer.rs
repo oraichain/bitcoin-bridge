@@ -702,7 +702,7 @@ impl Relayer {
 
     async fn relay_checkpoint_confs(&mut self, max_scan_checkpoint_confs: usize) -> Result<()> {
         loop {
-            let (confirmed_index, unconf_index, last_completed_index) = {
+            let (confirmed_index, unconf_index, last_completed_index): (Option<u32>, u32, u32) = {
                 let res = app_client(&self.app_client_addr)
                     .query(|app: InnerApp| {
                         let checkpoints = &app.bitcoin.checkpoints;

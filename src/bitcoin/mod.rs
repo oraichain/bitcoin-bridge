@@ -1104,6 +1104,33 @@ impl Bitcoin {
         Ok(confirmed_dests)
     }
 
+    /// Takes the pending nBTC transfers from the most recent fully-signed
+    /// checkpoint, leaving the vector empty after calling.
+    ///
+    /// This should be used to process the pending transfers, crediting each of
+    /// them now that the checkpoint has been fully signed.
+    #[allow(clippy::type_complexity)]
+    pub fn take_pending_completed(&mut self) -> Result<Vec<Vec<(Dest, Coin<Nbtc>)>>> {
+        if let Err(Error::Orga(OrgaError::App(err))) = self.checkpoints.last_completed_index() {
+            if err == "No completed checkpoints yet" {
+                return Ok(vec![]);
+            }
+        }
+
+        // TODO: drain iter
+        let pending = &mut self.checkpoints.last_completed_mut()?.pending;
+        let keys = pending
+            .iter()?
+            .map(|entry| entry.map(|(dest, _)| dest.clone()).map_err(Error::from))
+            .collect::<Result<Vec<Dest>>>()?;
+        let mut dests = vec![];
+        for dest in keys {
+            let coins = pending.remove(dest.clone())?.unwrap().into_inner();
+            dests.push((dest, coins));
+        }
+        Ok(vec![dests])
+    }
+
     pub fn give_miner_fee(&mut self, coin: Coin<Nbtc>) -> Result<()> {
         let amount: u64 = coin.amount.into();
         coin.burn();

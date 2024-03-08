@@ -102,7 +102,7 @@ pub struct InnerApp {
 
 #[orga]
 impl InnerApp {
-    pub const CONSENSUS_VERSION: u8 = 12;
+    pub const CONSENSUS_VERSION: u8 = 13;
 
     // #[cfg(feature = "full")]
     // fn configure_faucets(&mut self) -> Result<()> {
@@ -641,7 +641,8 @@ mod abci {
             //     self.staking.give(reward)?;
             // }
 
-            let pending_nbtc_transfers = self.bitcoin.take_pending()?;
+            // let pending_nbtc_transfers = self.bitcoin.take_pending()?;
+            let pending_nbtc_transfers = self.bitcoin.take_pending_completed()?;
             for pending in pending_nbtc_transfers {
                 for (dest, coins) in pending {
                     self.credit_transfer(dest, coins)?;
