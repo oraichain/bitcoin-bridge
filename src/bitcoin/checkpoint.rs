@@ -1130,7 +1130,7 @@ impl MigrateFrom<ConfigV3> for ConfigV4 {
             max_unconfirmed_checkpoints: 15,
             #[cfg(not(feature = "testnet"))]
             max_unconfirmed_checkpoints: 10,
-            ..Default::default()
+            user_fee_factor: value.user_fee_factor,
         })
     }
 }
@@ -1154,7 +1154,7 @@ impl MigrateFrom<ConfigV4> for ConfigV5 {
             max_unconfirmed_checkpoints: 15,
             #[cfg(not(feature = "testnet"))]
             max_unconfirmed_checkpoints: 100,
-            ..Default::default()
+            user_fee_factor: value.user_fee_factor,
         })
     }
 }
