@@ -8,8 +8,8 @@ use crate::bitcoin::{Bitcoin, Nbtc};
 use crate::cosmos::{Chain, Cosmos, Proof};
 
 use crate::constants::{
-    BTC_NATIVE_TOKEN_DENOM, DECLARE_FEE_USATS, IBC_FEE, IBC_FEE_USATS, INITIAL_SUPPLY_ORAIBTC,
-    INITIAL_SUPPLY_USATS_FOR_RELAYER, MAIN_NATIVE_TOKEN_DENOM, CALL_FEE_USATS
+    BTC_NATIVE_TOKEN_DENOM, CALL_FEE_USATS, DECLARE_FEE_USATS, IBC_FEE, IBC_FEE_USATS,
+    INITIAL_SUPPLY_ORAIBTC, INITIAL_SUPPLY_USATS_FOR_RELAYER, MAIN_NATIVE_TOKEN_DENOM,
 };
 use crate::utils::DeclareInfo;
 use bitcoin::util::merkleblock::PartialMerkleTree;

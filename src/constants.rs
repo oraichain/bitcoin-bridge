@@ -31,4 +31,3 @@ pub const DEFAULT_MAX_SCAN_CHECKPOINTS_CONFIRMATIONS: usize = 3000; // this vari
 
 // call fee usats
 pub const CALL_FEE_USATS: u64 = 0;
-
