@@ -1117,16 +1117,24 @@ impl Bitcoin {
             }
         }
 
-        // TODO: drain iter
-        let pending = &mut self.checkpoints.last_completed_mut()?.pending;
-        let keys = pending
-            .iter()?
-            .map(|entry| entry.map(|(dest, _)| dest.clone()).map_err(Error::from))
-            .collect::<Result<Vec<Dest>>>()?;
+        if self.checkpoints.confirmed_index.is_none() {
+            return Ok(vec![]);
+        }
+
+        let confirmed_index = self.checkpoints.confirmed_index.unwrap();
+        let last_completed_index = self.checkpoints.last_completed_index()?;
+
         let mut dests = vec![];
-        for dest in keys {
-            let coins = pending.remove(dest.clone())?.unwrap().into_inner();
-            dests.push((dest, coins));
+        for checkpoint_index in confirmed_index..=last_completed_index {
+            let pending = &mut self.checkpoints.get_mut(checkpoint_index)?.pending;
+            let keys = pending
+                .iter()?
+                .map(|entry| entry.map(|(dest, _)| dest.clone()).map_err(Error::from))
+                .collect::<Result<Vec<Dest>>>()?;
+            for dest in keys {
+                let coins = pending.remove(dest.clone())?.unwrap().into_inner();
+                dests.push((dest, coins));
+            }
         }
         Ok(vec![dests])
     }
