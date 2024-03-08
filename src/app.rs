@@ -8,8 +8,8 @@ use crate::bitcoin::{Bitcoin, Nbtc};
 use crate::cosmos::{Chain, Cosmos, Proof};
 
 use crate::constants::{
-    BTC_NATIVE_TOKEN_DENOM, DECLARE_FEE_USATS, IBC_FEE, IBC_FEE_USATS, INITIAL_SUPPLY_ORAIBTC,
-    INITIAL_SUPPLY_USATS_FOR_RELAYER, MAIN_NATIVE_TOKEN_DENOM,
+    BTC_NATIVE_TOKEN_DENOM, CALL_FEE_USATS, DECLARE_FEE_USATS, IBC_FEE, IBC_FEE_USATS,
+    INITIAL_SUPPLY_ORAIBTC, INITIAL_SUPPLY_USATS_FOR_RELAYER, MAIN_NATIVE_TOKEN_DENOM,
 };
 use crate::utils::DeclareInfo;
 use bitcoin::util::merkleblock::PartialMerkleTree;
@@ -64,8 +64,6 @@ impl Symbol for Nom {
     const INDEX: u8 = 69;
     const NAME: &'static str = MAIN_NATIVE_TOKEN_DENOM;
 }
-
-const CALL_FEE_USATS: u64 = 100_000_000;
 
 #[orga(version = 5)]
 pub struct InnerApp {
@@ -1413,7 +1411,7 @@ impl ConvertSdkTx for InnerApp {
                             crate::bitcoin::adapter::Adapter::new(recovery_addr.script_pubkey());
 
                         let funding_amt = MIN_FEE;
-                        let payer = build_call!(self.pay_nbtc_fee());
+                        let payer = build_call!(self.app_noop());
                         let paid = build_call!(self.bitcoin.set_recovery_script(script.clone()));
 
                         Ok(PaidCall { payer, paid })

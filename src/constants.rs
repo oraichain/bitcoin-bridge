@@ -28,3 +28,6 @@ pub const MAX_VALIDATORS: u64 = 30;
 
 // checkpoint constants
 pub const DEFAULT_MAX_SCAN_CHECKPOINTS_CONFIRMATIONS: usize = 3000; // this variable is used for relaying checkpoint
+
+// call fee usats
+pub const CALL_FEE_USATS: u64 = 0;
