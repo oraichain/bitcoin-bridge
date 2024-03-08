@@ -9,7 +9,7 @@ use crate::cosmos::{Chain, Cosmos, Proof};
 
 use crate::constants::{
     BTC_NATIVE_TOKEN_DENOM, DECLARE_FEE_USATS, IBC_FEE, IBC_FEE_USATS, INITIAL_SUPPLY_ORAIBTC,
-    INITIAL_SUPPLY_USATS_FOR_RELAYER, MAIN_NATIVE_TOKEN_DENOM,
+    INITIAL_SUPPLY_USATS_FOR_RELAYER, MAIN_NATIVE_TOKEN_DENOM, CALL_FEE_USATS
 };
 use crate::utils::DeclareInfo;
 use bitcoin::util::merkleblock::PartialMerkleTree;
@@ -64,8 +64,6 @@ impl Symbol for Nom {
     const INDEX: u8 = 69;
     const NAME: &'static str = MAIN_NATIVE_TOKEN_DENOM;
 }
-
-const CALL_FEE_USATS: u64 = 0;
 
 #[orga(version = 5)]
 pub struct InnerApp {
