@@ -1153,7 +1153,7 @@ impl MigrateFrom<ConfigV4> for ConfigV5 {
             #[cfg(feature = "testnet")]
             max_unconfirmed_checkpoints: 15,
             #[cfg(not(feature = "testnet"))]
-            max_unconfirmed_checkpoints: 100,
+            max_unconfirmed_checkpoints: 1000,
             user_fee_factor: value.user_fee_factor,
         })
     }
