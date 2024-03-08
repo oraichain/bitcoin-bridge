@@ -1119,8 +1119,9 @@ impl Bitcoin {
         let confirmed_index = self.checkpoints.confirmed_index.unwrap_or_default();
         let last_completed_index = self.checkpoints.last_completed_index()?;
 
-        let mut dests = vec![];
+        let mut completed_dests = vec![];
         for checkpoint_index in confirmed_index..=last_completed_index {
+            let mut dests: Vec<(Dest, Coin<Nbtc>)> = vec![];
             let pending = &mut self.checkpoints.get_mut(checkpoint_index)?.pending;
             let keys = pending
                 .iter()?
@@ -1130,8 +1131,9 @@ impl Bitcoin {
                 let coins = pending.remove(dest.clone())?.unwrap().into_inner();
                 dests.push((dest, coins));
             }
+            completed_dests.push(dests);
         }
-        Ok(vec![dests])
+        Ok(completed_dests)
     }
 
     pub fn give_miner_fee(&mut self, coin: Coin<Nbtc>) -> Result<()> {
