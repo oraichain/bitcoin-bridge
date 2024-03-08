@@ -1116,12 +1116,8 @@ impl Bitcoin {
                 return Ok(vec![]);
             }
         }
-
-        if self.checkpoints.confirmed_index.is_none() {
-            return Ok(vec![]);
-        }
-
-        let confirmed_index = self.checkpoints.confirmed_index.unwrap();
+        
+        let confirmed_index = self.checkpoints.confirmed_index.unwrap_or_default();
         let last_completed_index = self.checkpoints.last_completed_index()?;
 
         let mut dests = vec![];
