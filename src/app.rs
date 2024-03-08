@@ -641,7 +641,8 @@ mod abci {
             //     self.staking.give(reward)?;
             // }
 
-            let pending_nbtc_transfers = self.bitcoin.take_pending()?;
+            // let pending_nbtc_transfers = self.bitcoin.take_pending()?;
+            let pending_nbtc_transfers = self.bitcoin.take_pending_completed()?;
             for pending in pending_nbtc_transfers {
                 for (dest, coins) in pending {
                     self.credit_transfer(dest, coins)?;
