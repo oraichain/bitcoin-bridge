@@ -1116,7 +1116,6 @@ impl Bitcoin {
                 return Ok(vec![]);
             }
         }
-        
         let confirmed_index = self.checkpoints.confirmed_index.unwrap_or_default();
         let last_completed_index = self.checkpoints.last_completed_index()?;
 
