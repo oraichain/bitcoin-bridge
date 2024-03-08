@@ -65,7 +65,7 @@ impl Symbol for Nom {
     const NAME: &'static str = MAIN_NATIVE_TOKEN_DENOM;
 }
 
-const CALL_FEE_USATS: u64 = 100_000_000;
+const CALL_FEE_USATS: u64 = 0;
 
 #[orga(version = 5)]
 pub struct InnerApp {
