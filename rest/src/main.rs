@@ -1276,6 +1276,22 @@ async fn get_script_pubkey(address: String) -> Result<Value, BadRequest<String>>
     Ok(json!(base64_script_pubkey))
 }
 
+#[get("/bitcoin/address/<script_pubkey>?<network>")]
+async fn get_address(script_pubkey: String, network: String) -> Result<Value, BadRequest<String>> {
+    let chosen_network = match network.as_str() {
+        "bitcoin" => bitcoin::Network::Bitcoin,
+        "regtest" => bitcoin::Network::Regtest,
+        "testnet" => bitcoin::Network::Testnet,
+        "signet" => bitcoin::Network::Signet,
+        _ => bitcoin::Network::Bitcoin,
+    };
+    let script = bitcoin::Script::from_str(script_pubkey.as_str()).unwrap();
+    let address = bitcoin::Address::from_script(&script, chosen_network).unwrap();
+    Ok(json!({
+        "address": address,
+    }))
+}
+
 #[get("/cosmos/slashing/v1beta1/params")]
 async fn slashing_params() -> Value {
     let (
@@ -1701,6 +1717,7 @@ fn rocket() -> _ {
             bitcoin_last_checkpoint_size,
             bitcoin_checkpoint_size_with_index,
             get_script_pubkey,
+            get_address,
             validators,
             validator,
             slashing_params,
