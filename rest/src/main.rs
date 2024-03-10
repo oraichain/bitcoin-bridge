@@ -619,10 +619,18 @@ async fn bitcoin_sigset_with_index(index: u32) -> Result<Value, BadRequest<Strin
 }
 
 #[get("/bitcoin/checkpoint/<checkpoint_index>")]
-async fn bitcoin_checkpoint(checkpoint_index: u32) -> Result<Value, BadRequest<String>> {
+async fn bitcoin_checkpoint(checkpoint_index: Option<u32>) -> Result<Value, BadRequest<String>> {
     let data = app_client()
         .query(|app: InnerApp| {
-            let checkpoint = app.bitcoin.checkpoints.get(checkpoint_index)?;
+            let checkpoint: nomic::orga::collections::Ref<
+                '_,
+                nomic::bitcoin::checkpoint::Checkpoint,
+            >;
+            if checkpoint_index.is_some() {
+                checkpoint = app.bitcoin.checkpoints.get(checkpoint_index.unwrap())?;
+            } else {
+                checkpoint = app.bitcoin.checkpoints.get(app.bitcoin.checkpoints.index)?;
+            }
             let sigset = checkpoint.sigset.clone();
             let building_checkpoint = checkpoint.checkpoint_tx()?.into_inner();
             Ok((
