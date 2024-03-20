@@ -267,7 +267,7 @@ impl Default for Config {
 
 /// Calculates the bridge fee for a deposit of the given amount of BTC, in
 /// satoshis.
-pub fn calc_deposit_fee(amount: u64) -> u64 {
+pub fn calc_deposit_fee(_: u64) -> u64 {
     0
 }
 
