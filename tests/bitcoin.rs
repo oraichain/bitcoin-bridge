@@ -907,20 +907,20 @@ async fn signing_completed_checkpoint_test() {
             )
             .await
             .unwrap();
-        deposit_bitcoin(
-            &funded_accounts[0].address,
-            bitcoin::Amount::from_btc(0.5).unwrap(),
-            &wallet,
-        )
-        .await
-        .unwrap();
-    deposit_bitcoin(
-        &funded_accounts[0].address,
-        bitcoin::Amount::from_btc(0.5).unwrap(),
-        &wallet,
-    )
-    .await
-    .unwrap();
+            deposit_bitcoin(
+                &funded_accounts[0].address,
+                bitcoin::Amount::from_btc(0.5).unwrap(),
+                &wallet,
+            )
+            .await
+            .unwrap();
+            deposit_bitcoin(
+                &funded_accounts[0].address,
+                bitcoin::Amount::from_btc(0.5).unwrap(),
+                &wallet,
+            )
+            .await
+            .unwrap();
 
             btc_client
                 .generate_to_address(4, &async_wallet_address)
@@ -1454,6 +1454,13 @@ async fn signer_key_updating() {
         )
         .await
         .unwrap();
+        app_client()
+            .with_wallet(funded_accounts[0].wallet.clone())
+            .call(
+                move |app| build_call!(app.accounts.take_as_funding((MIN_FEE).into())),
+                move |app| build_call!(app.bitcoin.transfer_to_fee_pool(12000000000.into())),
+            )
+            .await?;
 
         btc_client
             .generate_to_address(4, &async_wallet_address)
@@ -1507,6 +1514,13 @@ async fn signer_key_updating() {
         )
         .await
         .unwrap();
+        app_client()
+            .with_wallet(funded_accounts[0].wallet.clone())
+            .call(
+                move |app| build_call!(app.accounts.take_as_funding((MIN_FEE).into())),
+                move |app| build_call!(app.bitcoin.transfer_to_fee_pool(30000000000.into())),
+            )
+            .await?;
 
         btc_client
             .generate_to_address(4, &async_wallet_address)
@@ -1762,12 +1776,12 @@ async fn recover_expired_deposit() {
         info!("Waiting 15 seconds for recovery to be relayed");
         tokio::time::sleep(Duration::from_secs(15)).await;
         app_client()
-        .with_wallet(funded_accounts[0].wallet.clone())
-        .call(
-            move |app| build_call!(app.accounts.take_as_funding((MIN_FEE).into())),
-            move |app| build_call!(app.bitcoin.transfer_to_fee_pool(500000000000.into())),
-        )
-        .await?;
+            .with_wallet(funded_accounts[0].wallet.clone())
+            .call(
+                move |app| build_call!(app.accounts.take_as_funding((MIN_FEE).into())),
+                move |app| build_call!(app.bitcoin.transfer_to_fee_pool(500000000000.into())),
+            )
+            .await?;
         btc_client
             .generate_to_address(6, &async_wallet_address)
             .await
@@ -2227,7 +2241,7 @@ async fn test_emergency_disbursal() {
         // balance only gets updated after moving pass bitcoin header & checkpoint has confirmed
         poll_for_confirmed_checkpoint(0).await;
 
-        let expected_balance = 989984200000000;
+        let expected_balance = 999984200000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
@@ -2624,7 +2638,7 @@ async fn test_withdraw() {
                 move |app| build_call!(app.bitcoin.transfer_to_fee_pool(10000000000.into())),
             )
             .await?;
-        let expected_balance = 989974200000000;
+        let expected_balance = 999974200000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
@@ -2691,7 +2705,7 @@ async fn test_withdraw() {
         poll_for_bitcoin_header(1138).await.unwrap();
         poll_for_confirmed_checkpoint(1).await;
 
-        let expected_balance = 689958850000000;
+        let expected_balance = 699958850000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
@@ -2703,6 +2717,14 @@ async fn test_withdraw() {
         )
         .await
         .unwrap();
+
+        app_client()
+            .with_wallet(funded_accounts[0].wallet.clone())
+            .call(
+                move |app| build_call!(app.accounts.take_as_funding((MIN_FEE).into())),
+                move |app| build_call!(app.bitcoin.transfer_to_fee_pool(30000000000.into())),
+            )
+            .await?;
         btc_client
             .generate_to_address(1, &async_wallet_address)
             .await
@@ -2755,7 +2777,7 @@ async fn test_withdraw() {
         poll_for_bitcoin_header(1142).await.unwrap();
         poll_for_confirmed_checkpoint(3).await;
 
-        let expected_balance = 1382919514000000;
+        let expected_balance = 1399889514000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
@@ -2813,7 +2835,7 @@ async fn test_withdraw() {
         poll_for_bitcoin_header(1145).await.unwrap();
         poll_for_confirmed_checkpoint(4).await;
 
-        let expected_balance = 82829514000000;
+        let expected_balance = 99799514000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
@@ -2894,7 +2916,7 @@ async fn test_minimum_deposit_fees() {
         ..Default::default()
     };
     let checkpoint_config = CheckpointConfig {
-        user_fee_factor: 10000,
+        user_fee_factor: 21000,
         ..Default::default()
     };
     let funded_accounts = setup_test_app(
@@ -3022,37 +3044,52 @@ async fn test_minimum_deposit_fees() {
 
         // case 1: test query with current building checkpoint
         let deposit_fees = app_client()
-            .query(|app: InnerApp| Ok(app.deposit_fees(None)?))
+            .query(|app: InnerApp| Ok(app.deposit_fees(Some(0))?))
             .await
             .unwrap();
 
         // sigset len = 1 => deposit_fees = 158 (input vsize) * 50 (default fee rate) * 10000 (use fee factor config above) / 10000 * 10^6 (units per sat)
-        assert_eq!(deposit_fees, 7900000000);
+        assert_eq!(deposit_fees, 16590000000);
 
-        // fixture: try creating some checkpoints and then we can query
-        for i in 0..3 {
-            deposit_bitcoin(
-                &funded_accounts[0].address,
-                bitcoin::Amount::from_btc(1.0).unwrap(),
-                &wallet,
-            )
+        deposit_bitcoin(
+            &funded_accounts[0].address,
+            bitcoin::Amount::from_btc(10.0).unwrap(),
+            &wallet,
+        )
+        .await
+        .unwrap();
+
+        let expected_balance = 0;
+        let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
+        assert_eq!(balance, expected_balance);
+
+        btc_client
+            .generate_to_address(4, &async_wallet_address)
             .await
             .unwrap();
 
-            btc_client
-                .generate_to_address(1, &async_wallet_address)
-                .await
-                .unwrap();
-            poll_for_bitcoin_header(1120 + i).await.unwrap();
-            poll_for_completed_checkpoint(i + 1).await;
-        }
+        poll_for_bitcoin_header(1124).await.unwrap();
+        poll_for_signing_checkpoint().await;
+
+        let expected_balance = 0;
+        let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
+        assert_eq!(balance, expected_balance);
+
+        let confirmed_index = app_client()
+            .query(|app: InnerApp| Ok(app.bitcoin.checkpoints.confirmed_index))
+            .await
+            .unwrap();
+        assert_eq!(confirmed_index, None);
+
+        // balance only gets updated after moving pass bitcoin header & checkpoint has completed
+        poll_for_completed_checkpoint(1).await;
 
         let first_checkpoint_deposit_fees = app_client()
             .query(|app: InnerApp| Ok(app.deposit_fees(Some(0))?))
             .await
             .unwrap();
         // first checkpoint minimum deposit fees should stay the same
-        assert_eq!(first_checkpoint_deposit_fees, 7900000000);
+        assert_eq!(first_checkpoint_deposit_fees, 16590000000);
 
         // case 2:
         let second_checkpoint_deposit_fees = app_client()
@@ -3060,7 +3097,7 @@ async fn test_minimum_deposit_fees() {
             .await
             .unwrap();
         // in the 2nd checkpoint, the signatory length is 2 -> 237 * 50 * 10^6
-        assert_eq!(second_checkpoint_deposit_fees, 11850000000);
+        assert_eq!(second_checkpoint_deposit_fees, 24885000000);
 
         Err::<(), Error>(Error::Test("Test completed successfully".to_string()))
     };
@@ -3352,7 +3389,7 @@ async fn test_deposit_with_high_min_confirmations() {
         // what does this do?
         tx.send(Some(())).await.unwrap();
 
-        let expected_balance = 989984200000000;
+        let expected_balance = 999984200000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
@@ -3633,7 +3670,7 @@ async fn test_bitcoin_with_checkpoint_confirmation_relay() {
         // what does this do?
         tx.send(Some(())).await.unwrap();
 
-        let expected_balance = 989984200000000;
+        let expected_balance = 999984200000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
@@ -3651,6 +3688,13 @@ async fn test_bitcoin_with_checkpoint_confirmation_relay() {
         )
         .await
         .unwrap();
+        app_client()
+            .with_wallet(funded_accounts[0].wallet.clone())
+            .call(
+                move |app| build_call!(app.accounts.take_as_funding((MIN_FEE).into())),
+                move |app| build_call!(app.bitcoin.transfer_to_fee_pool(1000000000.into())),
+            )
+            .await?;
 
         btc_client
             .generate_to_address(4, &async_wallet_address)
@@ -3669,7 +3713,7 @@ async fn test_bitcoin_with_checkpoint_confirmation_relay() {
         poll_for_bitcoin_header(1133).await.unwrap();
         poll_for_confirmed_checkpoint(1).await;
 
-        let expected_balance = 39576300000000;
+        let expected_balance = 39976300000000;
         let balance = poll_for_updated_balance(funded_accounts[1].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
@@ -3718,7 +3762,7 @@ async fn test_bitcoin_with_checkpoint_confirmation_relay() {
             .unwrap();
         assert!(signer_jailed);
 
-        let expected_balance = 989959200000000;
+        let expected_balance = 999958200000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
         Err::<(), Error>(Error::Test("Test completed successfully".to_string()))
