@@ -1761,6 +1761,13 @@ async fn recover_expired_deposit() {
 
         info!("Waiting 15 seconds for recovery to be relayed");
         tokio::time::sleep(Duration::from_secs(15)).await;
+        app_client()
+        .with_wallet(funded_accounts[0].wallet.clone())
+        .call(
+            move |app| build_call!(app.accounts.take_as_funding((MIN_FEE).into())),
+            move |app| build_call!(app.bitcoin.transfer_to_fee_pool(500000000000.into())),
+        )
+        .await?;
         btc_client
             .generate_to_address(6, &async_wallet_address)
             .await
@@ -1781,7 +1788,7 @@ async fn recover_expired_deposit() {
             .unwrap();
         poll_for_bitcoin_header(1143).await.unwrap();
 
-        let expected_balance = 39579547000000;
+        let expected_balance = 39979500000000;
         let balance = poll_for_updated_balance(funded_accounts[1].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
