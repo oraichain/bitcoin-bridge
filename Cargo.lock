@@ -2571,7 +2571,7 @@ dependencies = [
 [[package]]
 name = "orga"
 version = "0.3.1"
-source = "git+https://github.com/oraichain/orga.git?rev=4b1ec2a48330622d0c761d625cd3180d412b8e4e#4b1ec2a48330622d0c761d625cd3180d412b8e4e"
+source = "git+https://github.com/oraichain/orga.git?rev=b8bd07ad3e26849ba78d87355636e96638a78469#b8bd07ad3e26849ba78d87355636e96638a78469"
 dependencies = [
  "abci2",
  "async-trait",
@@ -2632,7 +2632,7 @@ dependencies = [
 [[package]]
 name = "orga-macros"
 version = "0.3.1"
-source = "git+https://github.com/oraichain/orga.git?rev=4b1ec2a48330622d0c761d625cd3180d412b8e4e#4b1ec2a48330622d0c761d625cd3180d412b8e4e"
+source = "git+https://github.com/oraichain/orga.git?rev=b8bd07ad3e26849ba78d87355636e96638a78469#b8bd07ad3e26849ba78d87355636e96638a78469"
 dependencies = [
  "darling",
  "heck 0.3.3",
