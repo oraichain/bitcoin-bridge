@@ -451,7 +451,7 @@ async fn bitcoin_test() {
         // what does this do?
         tx.send(Some(())).await.unwrap();
 
-        let expected_balance = 989984200000000;
+        let expected_balance = 999984200000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
@@ -470,6 +470,14 @@ async fn bitcoin_test() {
         .await
         .unwrap();
 
+        app_client()
+            .with_wallet(funded_accounts[0].wallet.clone())
+            .call(
+                move |app| build_call!(app.accounts.take_as_funding((MIN_FEE).into())),
+                move |app| build_call!(app.bitcoin.transfer_to_fee_pool(9500000000.into())),
+            )
+            .await?;
+
         btc_client
             .generate_to_address(4, &async_wallet_address)
             .await
@@ -487,7 +495,7 @@ async fn bitcoin_test() {
         poll_for_bitcoin_header(1133).await.unwrap();
         poll_for_confirmed_checkpoint(1).await;
 
-        let expected_balance = 39576300000000;
+        let expected_balance = 39976300000000;
         let balance = poll_for_updated_balance(funded_accounts[1].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
@@ -537,7 +545,7 @@ async fn bitcoin_test() {
             .unwrap();
         assert!(signer_jailed);
 
-        let expected_balance = 989928888000000;
+        let expected_balance = 999919388000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
@@ -584,7 +592,7 @@ async fn bitcoin_test() {
                 }
             }
         }
-        assert_eq!(signatory_balance, 50007967);
+        assert_eq!(signatory_balance, 40017467);
 
         let funded_account_balances: Vec<_> = funded_accounts
             .iter()
@@ -599,7 +607,7 @@ async fn bitcoin_test() {
             })
             .collect();
 
-        let expected_account_balances: Vec<u64> = vec![989923209, 0, 0, 0];
+        let expected_account_balances: Vec<u64> = vec![999913709, 0, 0, 0];
         assert_eq!(funded_account_balances, expected_account_balances);
 
         for (i, account) in funded_accounts[0..1].iter().enumerate() {
@@ -887,11 +895,32 @@ async fn signing_completed_checkpoint_test() {
         for i in 0..3 {
             deposit_bitcoin(
                 &funded_accounts[0].address,
-                bitcoin::Amount::from_btc(1.0).unwrap(),
+                bitcoin::Amount::from_btc(0.5).unwrap(),
                 &wallet,
             )
             .await
             .unwrap();
+            deposit_bitcoin(
+                &funded_accounts[0].address,
+                bitcoin::Amount::from_btc(0.5).unwrap(),
+                &wallet,
+            )
+            .await
+            .unwrap();
+        deposit_bitcoin(
+            &funded_accounts[0].address,
+            bitcoin::Amount::from_btc(0.5).unwrap(),
+            &wallet,
+        )
+        .await
+        .unwrap();
+    deposit_bitcoin(
+        &funded_accounts[0].address,
+        bitcoin::Amount::from_btc(0.5).unwrap(),
+        &wallet,
+    )
+    .await
+    .unwrap();
 
             btc_client
                 .generate_to_address(4, &async_wallet_address)
