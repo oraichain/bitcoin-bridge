@@ -246,7 +246,18 @@ async fn bitcoin_test() {
         max_length: 59,
         ..Default::default()
     };
-    let funded_accounts = setup_test_app(&path, 4, Some(headers_config), None, None);
+
+    let checkpoint_config = CheckpointConfig {
+        user_fee_factor: 21000,
+        ..Default::default()
+    };
+    let funded_accounts = setup_test_app(
+        &path,
+        4,
+        Some(headers_config),
+        Some(checkpoint_config),
+        None,
+    );
 
     let node = Node::<nomic::app::App>::new(node_path, Some("nomic-e2e"), Default::default());
     let _node_child = node.await.run().await.unwrap();
@@ -451,7 +462,7 @@ async fn bitcoin_test() {
         // what does this do?
         tx.send(Some(())).await.unwrap();
 
-        let expected_balance = 999984200000000;
+        let expected_balance = 999983410000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
@@ -495,7 +506,7 @@ async fn bitcoin_test() {
         poll_for_bitcoin_header(1133).await.unwrap();
         poll_for_confirmed_checkpoint(1).await;
 
-        let expected_balance = 39976300000000;
+        let expected_balance = 39975115000000;
         let balance = poll_for_updated_balance(funded_accounts[1].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
@@ -545,7 +556,7 @@ async fn bitcoin_test() {
             .unwrap();
         assert!(signer_jailed);
 
-        let expected_balance = 999919388000000;
+        let expected_balance = 999918598000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
@@ -592,7 +603,7 @@ async fn bitcoin_test() {
                 }
             }
         }
-        assert_eq!(signatory_balance, 40017467);
+        assert_eq!(signatory_balance, 40018371);
 
         let funded_account_balances: Vec<_> = funded_accounts
             .iter()
@@ -607,7 +618,7 @@ async fn bitcoin_test() {
             })
             .collect();
 
-        let expected_account_balances: Vec<u64> = vec![999913709, 0, 0, 0];
+        let expected_account_balances: Vec<u64> = vec![999912919, 0, 0, 0];
         assert_eq!(funded_account_balances, expected_account_balances);
 
         for (i, account) in funded_accounts[0..1].iter().enumerate() {
@@ -747,12 +758,21 @@ async fn signing_completed_checkpoint_test() {
         max_length: 59,
         ..Default::default()
     };
+    let checkpoint_config = CheckpointConfig {
+        user_fee_factor: 21000,
+        ..Default::default()
+    };
     let bitcoin_config = BitcoinConfig {
         max_offline_checkpoints: 20,
         ..Default::default()
     };
-    let funded_accounts =
-        setup_test_app(&path, 4, Some(headers_config), None, Some(bitcoin_config));
+    let funded_accounts = setup_test_app(
+        &path,
+        4,
+        Some(headers_config),
+        Some(checkpoint_config),
+        Some(bitcoin_config),
+    );
 
     info!("Starting Nomic node...");
     let node = Node::<nomic::app::App>::new(node_path, Some("nomic-e2e"), Default::default()).await;
@@ -1044,12 +1064,21 @@ async fn pending_deposits() {
         max_length: 59,
         ..Default::default()
     };
+    let checkpoint_config = CheckpointConfig {
+        user_fee_factor: 21000,
+        ..Default::default()
+    };
     let bitcoin_config = BitcoinConfig {
         min_confirmations: 3,
         ..Default::default()
     };
-    let funded_accounts =
-        setup_test_app(&path, 4, Some(headers_config), None, Some(bitcoin_config));
+    let funded_accounts = setup_test_app(
+        &path,
+        4,
+        Some(headers_config),
+        Some(checkpoint_config),
+        Some(bitcoin_config),
+    );
 
     let node = Node::<nomic::app::App>::new(node_path, Some("nomic-e2e"), Default::default());
     let node_child = node.await.run().await.unwrap();
@@ -1251,7 +1280,17 @@ async fn signer_key_updating() {
         max_length: 59,
         ..Default::default()
     };
-    let funded_accounts = setup_test_app(&path, 4, Some(headers_config), None, None);
+    let checkpoint_config = CheckpointConfig {
+        user_fee_factor: 21000,
+        ..Default::default()
+    };
+    let funded_accounts = setup_test_app(
+        &path,
+        4,
+        Some(headers_config),
+        Some(checkpoint_config),
+        None,
+    );
 
     let node = Node::<nomic::app::App>::new(node_path, Some("nomic-e2e"), Default::default());
     let _node_child = node.await.run().await.unwrap();
@@ -1613,6 +1652,7 @@ async fn recover_expired_deposit() {
     let checkpoint_config = CheckpointConfig {
         min_checkpoint_interval: 15,
         emergency_disbursal_lock_time_interval: 5 * 60,
+        user_fee_factor: 21000,
         ..Default::default()
     };
 
@@ -1802,7 +1842,7 @@ async fn recover_expired_deposit() {
             .unwrap();
         poll_for_bitcoin_header(1143).await.unwrap();
 
-        let expected_balance = 39979500000000;
+        let expected_balance = 39978710000000;
         let balance = poll_for_updated_balance(funded_accounts[1].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
@@ -1871,13 +1911,23 @@ async fn generate_deposit_expired() {
         ..Default::default()
     };
 
+    let checkpoint_config = CheckpointConfig {
+        user_fee_factor: 21000,
+        ..Default::default()
+    };
+
     let bitcoin_config = BitcoinConfig {
         max_deposit_age: 60 * 5,
         ..Default::default()
     };
 
-    let funded_accounts =
-        setup_test_app(&path, 4, Some(headers_config), None, Some(bitcoin_config));
+    let funded_accounts = setup_test_app(
+        &path,
+        4,
+        Some(headers_config),
+        Some(checkpoint_config),
+        Some(bitcoin_config),
+    );
 
     let node = Node::<nomic::app::App>::new(node_path, Some("nomic-e2e"), Default::default());
     let node_child = node.await.run().await.unwrap();
@@ -2029,11 +2079,14 @@ async fn test_emergency_disbursal() {
         max_length: 59,
         ..Default::default()
     };
+
     let checkpoint_config = CheckpointConfig {
         min_checkpoint_interval: 5,
         emergency_disbursal_lock_time_interval: 10,
+        user_fee_factor: 21000,
         ..Default::default()
     };
+
     let funded_accounts = setup_test_app(
         &path,
         4,
@@ -2241,7 +2294,7 @@ async fn test_emergency_disbursal() {
         // balance only gets updated after moving pass bitcoin header & checkpoint has confirmed
         poll_for_confirmed_checkpoint(0).await;
 
-        let expected_balance = 999984200000000;
+        let expected_balance = 999983410000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
@@ -2410,6 +2463,7 @@ async fn test_withdraw() {
     };
     let checkpoint_config = CheckpointConfig {
         emergency_disbursal_lock_time_interval: 10 * 60,
+        user_fee_factor: 21000,
         ..Default::default()
     };
     let funded_accounts = setup_test_app(
@@ -2638,7 +2692,7 @@ async fn test_withdraw() {
                 move |app| build_call!(app.bitcoin.transfer_to_fee_pool(10000000000.into())),
             )
             .await?;
-        let expected_balance = 999974200000000;
+        let expected_balance = 999973410000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
@@ -2685,10 +2739,10 @@ async fn test_withdraw() {
 
         match wallet.get_balances() {
             Ok(data) => {
-                assert_eq!(simulate_withdrawal_fee, 3100000000);
+                assert_eq!(simulate_withdrawal_fee, 3255000000);
                 assert_eq!(
                     data.mine.untrusted_pending.to_sat() * 1000000,
-                    299996900000000
+                    299996745000000
                 );
             }
             Err(e) => {
@@ -2705,7 +2759,7 @@ async fn test_withdraw() {
         poll_for_bitcoin_header(1138).await.unwrap();
         poll_for_confirmed_checkpoint(1).await;
 
-        let expected_balance = 699958850000000;
+        let expected_balance = 699958060000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
@@ -2777,7 +2831,7 @@ async fn test_withdraw() {
         poll_for_bitcoin_header(1142).await.unwrap();
         poll_for_confirmed_checkpoint(3).await;
 
-        let expected_balance = 1399889514000000;
+        let expected_balance = 1399887209000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
@@ -2815,10 +2869,10 @@ async fn test_withdraw() {
 
         match wallet.get_balances() {
             Ok(data) => {
-                assert_eq!(simulate_withdrawal_fee, 1240000000);
+                assert_eq!(simulate_withdrawal_fee, 1302000000);
                 assert_eq!(
                     data.mine.untrusted_pending.to_sat() * 1000000,
-                    1299998760000000
+                    1299998698000000
                 );
             }
             Err(e) => {
@@ -2835,7 +2889,7 @@ async fn test_withdraw() {
         poll_for_bitcoin_header(1145).await.unwrap();
         poll_for_confirmed_checkpoint(4).await;
 
-        let expected_balance = 99799514000000;
+        let expected_balance = 99797209000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
