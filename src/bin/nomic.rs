@@ -242,8 +242,9 @@ impl StartCmd {
                     should_migrate = true;
                 }
                 Some(code) => {
-                    log::error!("Legacy node exited unexpectedly");
-                    std::process::exit(code);
+                    log::error!("Legacy node exited unexpectedly {}", code);
+                    // std::process::exit(code);
+                    should_migrate = true;
                 }
                 None => panic!("Legacy node exited unexpectedly"),
             }
