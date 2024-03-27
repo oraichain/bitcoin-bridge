@@ -517,6 +517,8 @@ fn legacy_bin(config: &nomic::network::Config) -> Result<Option<PathBuf>> {
                         log::debug!(
                             "Legacy binary matches current binary, no need to run legacy binary"
                         );
+                        log::info!("Match binary {:?} {:?}", current_ver, legacy_ver);
+
                         Ok(None)
                     } else {
                         log::debug!(
