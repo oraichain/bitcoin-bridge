@@ -415,6 +415,7 @@ fn legacy_bin(config: &nomic::network::Config) -> Result<Option<PathBuf>> {
     let legacy_version = std::env::var("NOMIC_LEGACY_VERSION")
         .ok()
         .or(config.legacy_version.clone());
+    log::info!("Inside legacy version: {:?}", legacy_version);
 
     if let Some(legacy_version) = legacy_version {
         let (up_to_date, initialized) = {
@@ -449,6 +450,7 @@ fn legacy_bin(config: &nomic::network::Config) -> Result<Option<PathBuf>> {
             }
 
             let bin_dir = home.join("bin");
+            log::info!("Inside bin_dir: {:?}", bin_dir);
 
             #[cfg(feature = "legacy-bin")]
             {
@@ -499,6 +501,8 @@ fn legacy_bin(config: &nomic::network::Config) -> Result<Option<PathBuf>> {
                         }
                     }
                 }
+                log::info!("Inside legacy bin: {:?}", legacy_bin);
+
 
                 return if legacy_bin.is_none() {
                     if initialized {
