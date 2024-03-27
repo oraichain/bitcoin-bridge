@@ -223,6 +223,7 @@ impl StartCmd {
 
         let mut should_migrate = false;
         let legacy_bin = legacy_bin(&cmd.config)?;
+        log::info!("Legacy_bin: {:?}", legacy_bin);
         if let Some(legacy_bin) = legacy_bin {
             let mut legacy_cmd = std::process::Command::new(legacy_bin);
             if let Some(upgrade_height) = cmd.config.upgrade_height {
