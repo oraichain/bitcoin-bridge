@@ -5,11 +5,8 @@ RUN rustup default nightly
 
 WORKDIR /workspace
 
-COPY src/ /workspace/src
-COPY build.rs Cargo.lock Cargo.toml rust-toolchain.toml /workspace/
-COPY wasm/ /workspace/wasm
-COPY rest/ /workspace/rest
-COPY networks/ /workspace/networks
-COPY targe[t]/ /workspace/target
-
-RUN cargo install --locked --path /workspace/ --target-dir /workspace/target
+RUN apt install git -y
+RUN git clone https://github.com/oraichain/bitcoin-bridge.git
+RUN apt install byobu -y
+RUN apt install jq -y
+RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.38.0/install.sh | bash
