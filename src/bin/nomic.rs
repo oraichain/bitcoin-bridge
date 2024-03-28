@@ -236,6 +236,7 @@ impl StartCmd {
 
             log::info!("Starting legacy node... ({:#?})", legacy_cmd);
             let res = legacy_cmd.spawn()?.wait()?;
+            log::info!("ExistStatus: {:?}", res);
             match res.code() {
                 Some(138) => {
                     log::info!("Legacy node exited for upgrade");
