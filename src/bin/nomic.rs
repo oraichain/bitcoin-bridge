@@ -223,7 +223,6 @@ impl StartCmd {
 
         let mut should_migrate = false;
         let legacy_bin = legacy_bin(&cmd.config)?;
-        log::info!("Legacy_bin: {:?}", legacy_bin);
         if let Some(legacy_bin) = legacy_bin {
             let mut legacy_cmd = std::process::Command::new(legacy_bin);
             if let Some(upgrade_height) = cmd.config.upgrade_height {
@@ -236,16 +235,14 @@ impl StartCmd {
 
             log::info!("Starting legacy node... ({:#?})", legacy_cmd);
             let res = legacy_cmd.spawn()?.wait()?;
-            log::info!("ExistStatus: {:?}", res);
             match res.code() {
                 Some(138) => {
-                    log::info!("Legacy node exited for upgrade");
+                    log::info!("Legacy node exited for upgrade"); // mismatch version
                     should_migrate = true;
                 }
                 Some(code) => {
-                    log::error!("Legacy node exited unexpectedly {}", code);
-                    // std::process::exit(code);
-                    should_migrate = true;
+                    log::error!("Legacy node exited unexpectedly");
+                    std::process::exit(code);
                 }
                 None => panic!("Legacy node exited unexpectedly"),
             }
@@ -417,7 +414,6 @@ fn legacy_bin(config: &nomic::network::Config) -> Result<Option<PathBuf>> {
     let legacy_version = std::env::var("NOMIC_LEGACY_VERSION")
         .ok()
         .or(config.legacy_version.clone());
-    log::info!("Inside legacy version: {:?}", legacy_version);
 
     if let Some(legacy_version) = legacy_version {
         let (up_to_date, initialized) = {
@@ -452,7 +448,6 @@ fn legacy_bin(config: &nomic::network::Config) -> Result<Option<PathBuf>> {
             }
 
             let bin_dir = home.join("bin");
-            log::info!("Inside bin_dir: {:?}", bin_dir);
 
             #[cfg(feature = "legacy-bin")]
             {
@@ -503,8 +498,6 @@ fn legacy_bin(config: &nomic::network::Config) -> Result<Option<PathBuf>> {
                         }
                     }
                 }
-                log::info!("Inside legacy bin: {:?}", legacy_bin);
-
 
                 return if legacy_bin.is_none() {
                     if initialized {
@@ -519,8 +512,6 @@ fn legacy_bin(config: &nomic::network::Config) -> Result<Option<PathBuf>> {
                         log::debug!(
                             "Legacy binary matches current binary, no need to run legacy binary"
                         );
-                        log::info!("Match binary {:?} {:?}", current_ver, legacy_ver);
-
                         Ok(None)
                     } else {
                         log::debug!(
