@@ -65,7 +65,7 @@ impl Symbol for Nom {
     const NAME: &'static str = MAIN_NATIVE_TOKEN_DENOM;
 }
 
-#[orga(version = 5)]
+#[orga(version = 6)]
 pub struct InnerApp {
     #[call]
     pub accounts: Accounts<Nom>,
@@ -85,7 +85,7 @@ pub struct InnerApp {
     #[call]
     pub ibc: Ibc,
     #[cfg(not(feature = "testnet"))]
-    #[orga(version(V4, V5))]
+    #[orga(version(V4, V5, V6))]
     #[call]
     pub ibc: Ibc,
 
@@ -94,13 +94,13 @@ pub struct InnerApp {
     #[cfg(feature = "testnet")]
     pub cosmos: Cosmos,
     #[cfg(not(feature = "testnet"))]
-    #[orga(version(V4, V5))]
+    #[orga(version(V4, V5, V6))]
     pub cosmos: Cosmos,
 }
 
 #[orga]
 impl InnerApp {
-    pub const CONSENSUS_VERSION: u8 = 14;
+    pub const CONSENSUS_VERSION: u8 = 15;
 
     // #[cfg(feature = "full")]
     // fn configure_faucets(&mut self) -> Result<()> {
