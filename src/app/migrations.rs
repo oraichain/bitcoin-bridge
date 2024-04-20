@@ -144,7 +144,7 @@ impl MigrateFrom<InnerAppV4> for InnerAppV5 {
 impl MigrateFrom<InnerAppV5> for InnerAppV6 {
     #[allow(unused_mut)]
     fn migrate_from(mut other: InnerAppV5) -> Result<Self> {
-        let checkpoint = other.bitcoin.checkpoints.building_mut()?;
+        let mut checkpoint = other.bitcoin.checkpoints.building_mut()?;
         checkpoint.fee_rate = DEFAULT_FEE_RATE;
         Ok(Self {
             accounts: other.accounts,
