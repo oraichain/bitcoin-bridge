@@ -97,6 +97,7 @@ pub enum Command {
     Unjail(UnjailCmd),
     Edit(EditCmd),
     Claim(ClaimCmd),
+    ClaimIbcEscrowed(ClaimIbcEscrowedCmd),
     Relayer(RelayerCmd),
     Signer(SignerCmd),
     SetSignatoryKey(SetSignatoryKeyCmd),
@@ -160,6 +161,7 @@ impl Command {
                 Unjail(cmd) => cmd.run().await,
                 Edit(cmd) => cmd.run().await,
                 Claim(cmd) => cmd.run().await,
+                ClaimIbcEscrowed(cmd) => cmd.run().await,
                 Relayer(cmd) => cmd.run().await,
                 Signer(cmd) => cmd.run().await,
                 SetSignatoryKey(cmd) => cmd.run().await,
@@ -1084,6 +1086,26 @@ impl ClaimCmd {
             .call(
                 |app| build_call!(app.staking.claim_all()),
                 |app| build_call!(app.deposit_rewards()),
+            )
+            .await?)
+    }
+}
+
+#[derive(Parser, Debug)]
+pub struct ClaimIbcEscrowedCmd {
+    #[clap(flatten)]
+    config: nomic::network::Config,
+}
+
+impl ClaimIbcEscrowedCmd {
+    async fn run(&self) -> Result<()> {
+        Ok(self
+            .config
+            .client()
+            .with_wallet(wallet())
+            .call(
+                |app| build_call!(app.claim_escrowed_nbtc()),
+                |app| build_call!(app.app_noop()),
             )
             .await?)
     }

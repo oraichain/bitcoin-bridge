@@ -592,6 +592,23 @@ async fn bitcoin_minimum_deposit(
     }))
 }
 
+#[get("/bitcoin/escrow_address?<address>")]
+async fn escrow_address(address: String) -> Result<Value, BadRequest<String>> {
+    let escrow_balance: Amount = app_client()
+        .query(|app: InnerApp| {
+            let addr = Address::from_str(address.as_str()).unwrap();
+            Ok(app.escrowed_nbtc(addr)?)
+        })
+        .await
+        .map_err(|e| BadRequest(Some(format!("error: {:?}", e))))?;
+
+    let balance: u64 = escrow_balance.into();
+
+    Ok(json!({
+        "escrow_balance":balance
+    }))
+}
+
 #[get("/bitcoin/withdrawal_fees/<address>?<checkpoint_index>")]
 async fn bitcoin_minimum_withdrawal(
     address: String,
@@ -1825,7 +1842,8 @@ fn rocket() -> _ {
             bitcoin_minimum_deposit,
             bitcoin_minimum_withdrawal,
             last_completed_checkpoint_tx,
-            checkpoint_fee_info
+            checkpoint_fee_info,
+            escrow_address
         ],
     )
 }
