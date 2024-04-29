@@ -621,7 +621,7 @@ async fn bitcoin_sigset_with_index(index: u32) -> Result<Value, BadRequest<Strin
 }
 
 #[get("/bitcoin/escrow_address?<address>")]
-async fn escrow_address(address: String) -> Result<Value, BadRequest<String>> {
+async fn escrow_address_balance(address: String) -> Result<Value, BadRequest<String>> {
     let escrow_balance: Amount = app_client()
         .query(|app: InnerApp| {
             let addr = Address::from_str(address.as_str()).unwrap();
@@ -1843,7 +1843,7 @@ fn rocket() -> _ {
             bitcoin_minimum_withdrawal,
             last_completed_checkpoint_tx,
             checkpoint_fee_info,
-            escrow_address
+            escrow_address_balance
         ],
     )
 }
