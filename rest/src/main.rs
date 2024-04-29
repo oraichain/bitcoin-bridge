@@ -620,6 +620,23 @@ async fn bitcoin_sigset_with_index(index: u32) -> Result<Value, BadRequest<Strin
     }))
 }
 
+#[get("/bitcoin/escrow_address?<address>")]
+async fn escrow_address_balance(address: String) -> Result<Value, BadRequest<String>> {
+    let escrow_balance: Amount = app_client()
+        .query(|app: InnerApp| {
+            let addr = Address::from_str(address.as_str()).unwrap();
+            Ok(app.escrowed_nbtc(addr)?)
+        })
+        .await
+        .map_err(|e| BadRequest(Some(format!("error: {:?}", e))))?;
+
+    let balance: u64 = escrow_balance.into();
+
+    Ok(json!({
+        "escrow_balance":balance
+    }))
+}
+
 #[get("/bitcoin/checkpoint/<checkpoint_index>")]
 async fn bitcoin_checkpoint(checkpoint_index: Option<u32>) -> Result<Value, BadRequest<String>> {
     let data = app_client()
@@ -1825,7 +1842,8 @@ fn rocket() -> _ {
             bitcoin_minimum_deposit,
             bitcoin_minimum_withdrawal,
             last_completed_checkpoint_tx,
-            checkpoint_fee_info
+            checkpoint_fee_info,
+            escrow_address_balance
         ],
     )
 }
