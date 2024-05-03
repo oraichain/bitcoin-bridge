@@ -364,51 +364,6 @@ impl InnerApp {
         Ok(withdrawal_fees)
     }
 
-    #[query]
-    pub fn query_ibc_balances(&self) -> Result<Vec<(Address, u64)>> {
-        let mut addresses: Vec<(Address, u64)> = vec![];
-        for entry in self.cosmos.chains.iter()? {
-            let (client_id, chain) = entry?;
-            let Some(client) = self.ibc.ctx.clients.get(client_id.clone())? else {
-                log::debug!("Warning: client not found");
-                continue;
-            };
-
-            let connection_ids: Vec<orga::encoding::EofTerminatedString<IbcConnectionId>> = self.ibc.ctx.query_client_connections(client_id.clone())?;
-            for connection_id in connection_ids {
-                let channels = self
-                    .ibc
-                    .ctx
-                    .query_connection_channels(connection_id.clone())?;
-                for channel in channels {
-                    let port_id: PortId = channel
-                        .port_id
-                        .parse()
-                        .map_err(|_| crate::error::Error::Ibc("Invalid port".to_string()))?;
-                    let channel_id = ChannelId::from_str(&channel.channel_id).unwrap();
-
-                    let escrow_address = AccountId::new(
-                        BECH32_PREFIX,
-                        &cosmos_adr028_escrow_address(&PortId::transfer(), &ChannelId::new(0)),
-                    )
-                    .map_err(|e| crate::error::Error::Ibc(e.to_string()))?
-                    .to_string()
-                    .parse()
-                    .unwrap();
-                    let balance: u64 = self
-                        .ibc
-                        .transfer()
-                        .symbol_balance::<Nbtc>(escrow_address)
-                        .map_err(|e| crate::error::Error::Ibc(e.to_string()))?
-                        .into();
-
-                    addresses.push((escrow_address, balance));
-                }
-            }
-        }
-        Ok(addresses)
-    }
-
     #[call]
     pub fn mint_initial_supply(&mut self) -> Result<String> {
         {

@@ -736,11 +736,6 @@ impl BalanceCmd {
         let balance = client.query(|app| app.escrowed_nbtc(address)).await?;
         println!("{} IBC-escrowed NBTC", balance);
 
-        let ibc_balances = client
-            .query(|app: InnerApp| app.query_ibc_balances())
-            .await?;
-        println!("Ibc balance: {:?}", ibc_balances);
-
         Ok(())
     }
 }
