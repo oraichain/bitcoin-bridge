@@ -428,7 +428,6 @@ impl InnerApp {
         &mut self,
         current_height: u64,
         retired_height: u64,
-        wanted_minted_amount: u64,
     ) -> Result<()> {
         if current_height == retired_height {
             let escrow_address = self
@@ -447,9 +446,7 @@ impl InnerApp {
                 .transfer()
                 .get_escrow_account(&PortId::transfer(), &ChannelId::new(1u64))?;
 
-            let current_escrowed_amount: u64 = self.escrowed_nbtc(escrow_address)?.into();
-            let mint_escrowed_amount = wanted_minted_amount - current_escrowed_amount;
-            let mint_escrowed_coin = Nbtc::mint(Amount::new(mint_escrowed_amount));
+            let mint_escrowed_coin = Nbtc::mint(burned_amount);
             self.ibc
                 .transfer_mut()
                 .mint_coins_execute(&escrow_address, &mint_escrowed_coin.into())?;
@@ -664,7 +661,7 @@ mod abci {
     impl BeginBlock for InnerApp {
         fn begin_block(&mut self, ctx: &BeginBlockCtx) -> Result<()> {
             // FIXME: change retire height to a different height
-            self.retire_old_ibc_channel(ctx.height, 1526305, 10000u64)?;
+            self.retire_old_ibc_channel(ctx.height, 1526305)?;
             let now = ctx.header.time.as_ref().unwrap().seconds;
             self.upgrade.step(
                 &vec![Self::CONSENSUS_VERSION].try_into().unwrap(),
@@ -1773,12 +1770,17 @@ mod tests {
     #[test]
     fn test_retire_old_ibc_channel() {
         let mut app = inner_app();
-        // before, mint for channel 0 50 usats so that afterwards we can burn and test it
+        // before, mint for channel 0 50 usats & channel 1 100 usats so that afterwards we can burn & mint then test both balances
         // fixture
         let channel_0_escrow_account = app
             .ibc
             .transfer()
             .get_escrow_account(&PortId::transfer(), &ChannelId::new(0u64))
+            .unwrap();
+        let channel_1_escrow_account = app
+            .ibc
+            .transfer()
+            .get_escrow_account(&PortId::transfer(), &ChannelId::new(1u64))
             .unwrap();
         let channel_0_minted_amount = 50u64;
         let channel_1_minted_amount = 100u64;
@@ -1789,28 +1791,33 @@ mod tests {
                 &Nbtc::mint(channel_0_minted_amount).into(),
             )
             .unwrap();
+        app.ibc
+            .transfer_mut()
+            .mint_coins_execute(
+                &channel_1_escrow_account,
+                &Nbtc::mint(channel_1_minted_amount).into(),
+            )
+            .unwrap();
         let channel_0_escrow_balance = app.escrowed_nbtc(channel_0_escrow_account).unwrap();
+        let channel_1_escrow_balance = app.escrowed_nbtc(channel_1_escrow_account).unwrap();
         assert_eq!(
             channel_0_escrow_balance,
             Amount::new(channel_0_minted_amount)
         );
+        assert_eq!(
+            channel_1_escrow_balance,
+            Amount::new(channel_1_minted_amount)
+        );
 
         // testing
-        app.retire_old_ibc_channel(0u64, 0u64, channel_1_minted_amount)
-            .unwrap();
-
-        let channel_1_escrow_account = app
-            .ibc
-            .transfer()
-            .get_escrow_account(&PortId::transfer(), &ChannelId::new(1u64))
-            .unwrap();
+        app.retire_old_ibc_channel(0u64, 0u64).unwrap();
 
         let channel_0_escrow_balance = app.escrowed_nbtc(channel_0_escrow_account).unwrap();
         let channel_1_escrow_balance = app.escrowed_nbtc(channel_1_escrow_account).unwrap();
         assert_eq!(channel_0_escrow_balance.to_string(), "0");
         assert_eq!(
             channel_1_escrow_balance,
-            Amount::new(channel_1_minted_amount)
+            Amount::new(channel_0_minted_amount + channel_1_minted_amount)
         );
     }
 
