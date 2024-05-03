@@ -660,31 +660,31 @@ mod abci {
                 .insert((), vec![Self::CONSENSUS_VERSION].try_into().unwrap())?;
 
             self.mint_initial_supply()?;
-            let account_id = AccountId::new(
-                BECH32_PREFIX,
-                &cosmos_adr028_escrow_address(&PortId::transfer(), &ChannelId::new(0)),
-            )
-            .map_err(|_| TokenTransferError::ParseAccountFailure)?;
-            let account_id_channel_1 = AccountId::new(
-                BECH32_PREFIX,
-                &cosmos_adr028_escrow_address(&PortId::transfer(), &ChannelId::new(1)),
-            )
-            .map_err(|_| TokenTransferError::ParseAccountFailure)?;
-            self.ibc
-                .transfer_mut()
-                .mint_coins_execute(
-                    &Address::from_str(&account_id.to_string()).unwrap(),
-                    &Nbtc::mint(15u64).into(),
-                )
-                .unwrap();
+            // let account_id = AccountId::new(
+            //     BECH32_PREFIX,
+            //     &cosmos_adr028_escrow_address(&PortId::transfer(), &ChannelId::new(0)),
+            // )
+            // .map_err(|_| TokenTransferError::ParseAccountFailure)?;
+            // let account_id_channel_1 = AccountId::new(
+            //     BECH32_PREFIX,
+            //     &cosmos_adr028_escrow_address(&PortId::transfer(), &ChannelId::new(1)),
+            // )
+            // .map_err(|_| TokenTransferError::ParseAccountFailure)?;
+            // self.ibc
+            //     .transfer_mut()
+            //     .mint_coins_execute(
+            //         &Address::from_str(&account_id.to_string()).unwrap(),
+            //         &Nbtc::mint(15u64).into(),
+            //     )
+            //     .unwrap();
 
-            self.ibc
-                .transfer_mut()
-                .mint_coins_execute(
-                    &Address::from_str(&account_id_channel_1.to_string()).unwrap(),
-                    &Nbtc::mint(100u64).into(),
-                )
-                .unwrap();
+            // self.ibc
+            //     .transfer_mut()
+            //     .mint_coins_execute(
+            //         &Address::from_str(&account_id_channel_1.to_string()).unwrap(),
+            //         &Nbtc::mint(100u64).into(),
+            //     )
+            //     .unwrap();
             // #[cfg(feature = "testnet")]
             // {
             //     self.upgrade.activation_delay_seconds = 20 * 60;
