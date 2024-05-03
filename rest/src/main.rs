@@ -33,7 +33,7 @@ use tokio::sync::RwLock;
 
 use ibc::core::ics24_host::identifier::{ChannelId, ConnectionId as IbcConnectionId, PortId};
 use ibc::{
-    applications::transfer::{context::cosmos_adr028_escrow_address, error::TokenTransferError},
+    applications::transfer::{context::TokenTransferValidationContext, error::TokenTransferError},
     clients::ics07_tendermint::client_state::ClientState,
 };
 use ibc_proto::google::protobuf::Any;
@@ -648,15 +648,10 @@ async fn escrow_address_balance(address: String) -> Result<Value, BadRequest<Str
 async fn escrow_account_balance(channel_id: u64) -> Result<Value, BadRequest<String>> {
     let escrow_balance: (Address, Amount) = app_client()
         .query(|app: InnerApp| {
-            let escrow_address: Address = AccountId::new(
-                BECH32_PREFIX,
-                &cosmos_adr028_escrow_address(&PortId::transfer(), &ChannelId::new(channel_id)),
-            )
-            .map_err(|_| TokenTransferError::ParseAccountFailure)?
-            .to_string()
-            .parse()
-            .map_err(|_| TokenTransferError::ParseAccountFailure)
-            .unwrap();
+            let escrow_address = app
+                .ibc
+                .transfer()
+                .get_escrow_account(&PortId::transfer(), &ChannelId::new(channel_id))?;
             Ok((escrow_address, app.escrowed_nbtc(escrow_address)?))
         })
         .await
