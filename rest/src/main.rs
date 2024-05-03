@@ -644,14 +644,15 @@ async fn escrow_address_balance(address: String) -> Result<Value, BadRequest<Str
     }))
 }
 
-#[get("/ibc/escrow_account_balance?<channel_id>")]
-async fn escrow_account_balance(channel_id: u64) -> Result<Value, BadRequest<String>> {
+// eg: /ibc/escrow_account_balance?channel_identifier=1
+#[get("/ibc/escrow_account_balance?<channel_identifier>")]
+async fn escrow_account_balance(channel_identifier: u64) -> Result<Value, BadRequest<String>> {
     let escrow_balance: (Address, Amount) = app_client()
         .query(|app: InnerApp| {
             let escrow_address = app
                 .ibc
                 .transfer()
-                .get_escrow_account(&PortId::transfer(), &ChannelId::new(channel_id))?;
+                .get_escrow_account(&PortId::transfer(), &ChannelId::new(channel_identifier))?;
             Ok((escrow_address, app.escrowed_nbtc(escrow_address)?))
         })
         .await
