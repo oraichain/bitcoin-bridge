@@ -28,9 +28,7 @@ use orga::ibc::ibc_rs::applications::transfer::Memo;
 use prost_types::Any;
 use std::str::FromStr;
 
-use orga::ibc::ibc_rs::applications::transfer::context::{
-    cosmos_adr028_escrow_address, TokenTransferExecutionContext,
-};
+use orga::ibc::ibc_rs::applications::transfer::context::TokenTransferExecutionContext;
 use orga::ibc::ibc_rs::applications::transfer::msgs::transfer::MsgTransfer;
 use orga::ibc::ibc_rs::applications::transfer::packet::PacketData;
 use orga::ibc::ibc_rs::core::ics04_channel::timeout::TimeoutHeight;
