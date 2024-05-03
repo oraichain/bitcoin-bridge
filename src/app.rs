@@ -16,18 +16,21 @@ use bitcoin::util::merkleblock::PartialMerkleTree;
 use bitcoin::{Address as BitcoinAddress, Script, Transaction, TxOut};
 use orga::coins::{
     Accounts, Address, Amount, Coin, Faucet, FaucetOptions, Give, Staking, Symbol, Take,
-    ValidatorQueryInfo,
+    ValidatorQueryInfo, BECH32_PREFIX,
 };
 use orga::context::GetContext;
 use orga::cosmrs::bank::MsgSend;
 use orga::cosmrs::tendermint::crypto::Sha256;
+use orga::cosmrs::AccountId;
 use orga::describe::{Describe, Descriptor};
 use orga::encoding::{Decode, Encode, LengthVec};
 use orga::ibc::ibc_rs::applications::transfer::Memo;
 use prost_types::Any;
 use std::str::FromStr;
 
-use orga::ibc::ibc_rs::applications::transfer::context::TokenTransferExecutionContext;
+use orga::ibc::ibc_rs::applications::transfer::context::{
+    cosmos_adr028_escrow_address, TokenTransferExecutionContext,
+};
 use orga::ibc::ibc_rs::applications::transfer::msgs::transfer::MsgTransfer;
 use orga::ibc::ibc_rs::applications::transfer::packet::PacketData;
 use orga::ibc::ibc_rs::core::ics04_channel::timeout::TimeoutHeight;
@@ -361,6 +364,51 @@ impl InnerApp {
         Ok(withdrawal_fees)
     }
 
+    #[query]
+    pub fn query_ibc_balances(&self) -> Result<Vec<(Address, u64)>> {
+        let mut addresses: Vec<(Address, u64)> = vec![];
+        for entry in self.cosmos.chains.iter()? {
+            let (client_id, chain) = entry?;
+            let Some(client) = self.ibc.ctx.clients.get(client_id.clone())? else {
+                log::debug!("Warning: client not found");
+                continue;
+            };
+
+            let connection_ids: Vec<orga::encoding::EofTerminatedString<IbcConnectionId>> = self.ibc.ctx.query_client_connections(client_id.clone())?;
+            for connection_id in connection_ids {
+                let channels = self
+                    .ibc
+                    .ctx
+                    .query_connection_channels(connection_id.clone())?;
+                for channel in channels {
+                    let port_id: PortId = channel
+                        .port_id
+                        .parse()
+                        .map_err(|_| crate::error::Error::Ibc("Invalid port".to_string()))?;
+                    let channel_id = ChannelId::from_str(&channel.channel_id).unwrap();
+
+                    let escrow_address = AccountId::new(
+                        BECH32_PREFIX,
+                        &cosmos_adr028_escrow_address(&PortId::transfer(), &ChannelId::new(0)),
+                    )
+                    .map_err(|e| crate::error::Error::Ibc(e.to_string()))?
+                    .to_string()
+                    .parse()
+                    .unwrap();
+                    let balance: u64 = self
+                        .ibc
+                        .transfer()
+                        .symbol_balance::<Nbtc>(escrow_address)
+                        .map_err(|e| crate::error::Error::Ibc(e.to_string()))?
+                        .into();
+
+                    addresses.push((escrow_address, balance));
+                }
+            }
+        }
+        Ok(addresses)
+    }
+
     #[call]
     pub fn mint_initial_supply(&mut self) -> Result<String> {
         {
@@ -576,10 +624,16 @@ mod abci {
             messages::{self, ResponseQuery},
             AbciQuery, BeginBlock, EndBlock, InitChain,
         },
-        coins::{Give, Take, ValidatorQueryInfo, UNBONDING_SECONDS},
+        coins::{Give, Take, ValidatorQueryInfo, BECH32_PREFIX, UNBONDING_SECONDS},
         collections::Map,
+        cosmrs::AccountId,
         encoding::EofTerminatedString,
-        ibc::ibc_rs::core::{ics02_client::error::ClientError, ics24_host::path::Path},
+        ibc::ibc_rs::{
+            applications::transfer::{
+                context::cosmos_adr028_escrow_address, error::TokenTransferError,
+            },
+            core::{ics02_client::error::ClientError, ics24_host::path::Path},
+        },
         plugins::{BeginBlockCtx, EndBlockCtx, InitChainCtx},
     };
     use prost_types::{Any, Duration};
@@ -606,6 +660,31 @@ mod abci {
                 .insert((), vec![Self::CONSENSUS_VERSION].try_into().unwrap())?;
 
             self.mint_initial_supply()?;
+            let account_id = AccountId::new(
+                BECH32_PREFIX,
+                &cosmos_adr028_escrow_address(&PortId::transfer(), &ChannelId::new(0)),
+            )
+            .map_err(|_| TokenTransferError::ParseAccountFailure)?;
+            let account_id_channel_1 = AccountId::new(
+                BECH32_PREFIX,
+                &cosmos_adr028_escrow_address(&PortId::transfer(), &ChannelId::new(1)),
+            )
+            .map_err(|_| TokenTransferError::ParseAccountFailure)?;
+            self.ibc
+                .transfer_mut()
+                .mint_coins_execute(
+                    &Address::from_str(&account_id.to_string()).unwrap(),
+                    &Nbtc::mint(15u64).into(),
+                )
+                .unwrap();
+
+            self.ibc
+                .transfer_mut()
+                .mint_coins_execute(
+                    &Address::from_str(&account_id_channel_1.to_string()).unwrap(),
+                    &Nbtc::mint(100u64).into(),
+                )
+                .unwrap();
             // #[cfg(feature = "testnet")]
             // {
             //     self.upgrade.activation_delay_seconds = 20 * 60;
