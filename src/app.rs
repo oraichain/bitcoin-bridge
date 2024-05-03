@@ -454,17 +454,7 @@ impl InnerApp {
             .parse()
             .map_err(|err| Error::App("Cannot create new account id".to_string()))?;
 
-            let reserve_amount = self
-                .bitcoin
-                .checkpoints
-                .last_completed()?
-                .reserve_output()?
-                .ok_or_else(|| {
-                    Error::App(
-                        "Cannot get reserve output from current building checkpoint".to_string(),
-                    )
-                })?
-                .value;
+            let reserve_amount = self.bitcoin.value_locked()?;
             let current_escrowed_amount: u64 = self.escrowed_nbtc(escrow_address)?.into();
             let mint_escrowed_amount = reserve_amount - current_escrowed_amount;
             let mint_escrowed_coin = Nbtc::mint(Amount::new(mint_escrowed_amount));
