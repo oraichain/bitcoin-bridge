@@ -16,18 +16,21 @@ use bitcoin::util::merkleblock::PartialMerkleTree;
 use bitcoin::{Address as BitcoinAddress, Script, Transaction, TxOut};
 use orga::coins::{
     Accounts, Address, Amount, Coin, Faucet, FaucetOptions, Give, Staking, Symbol, Take,
-    ValidatorQueryInfo,
+    ValidatorQueryInfo, BECH32_PREFIX,
 };
 use orga::context::GetContext;
 use orga::cosmrs::bank::MsgSend;
 use orga::cosmrs::tendermint::crypto::Sha256;
+use orga::cosmrs::AccountId;
 use orga::describe::{Describe, Descriptor};
 use orga::encoding::{Decode, Encode, LengthVec};
 use orga::ibc::ibc_rs::applications::transfer::Memo;
 use prost_types::Any;
 use std::str::FromStr;
 
-use orga::ibc::ibc_rs::applications::transfer::context::TokenTransferExecutionContext;
+use orga::ibc::ibc_rs::applications::transfer::context::{
+    TokenTransferExecutionContext, TokenTransferValidationContext,
+};
 use orga::ibc::ibc_rs::applications::transfer::msgs::transfer::MsgTransfer;
 use orga::ibc::ibc_rs::applications::transfer::packet::PacketData;
 use orga::ibc::ibc_rs::core::ics04_channel::timeout::TimeoutHeight;
@@ -43,7 +46,9 @@ use orga::macros::build_call;
 use orga::migrate::Migrate;
 use orga::orga;
 use orga::plugins::sdk_compat::{sdk, sdk::Tx as SdkTx, ConvertSdkTx};
-use orga::plugins::{disable_fee, DefaultPlugins, Events, Paid, PaidCall, Signer, Time, MIN_FEE};
+use orga::plugins::{
+    disable_fee, BeginBlockCtx, DefaultPlugins, Events, Paid, PaidCall, Signer, Time, MIN_FEE,
+};
 use orga::prelude::*;
 use orga::upgrade::Version;
 use orga::upgrade::{Upgrade, UpgradeV0};
@@ -419,6 +424,36 @@ impl InnerApp {
         Ok(total_balances)
     }
 
+    pub fn retire_old_ibc_channel(
+        &mut self,
+        current_height: u64,
+        retired_height: u64,
+    ) -> Result<()> {
+        if current_height == retired_height {
+            let escrow_address = self
+                .ibc
+                .transfer()
+                .get_escrow_account(&PortId::transfer(), &ChannelId::new(0u64))?;
+            // burn all coins from the old channel
+            let burned_amount = self.escrowed_nbtc(escrow_address)?;
+            let burned_coins = Nbtc::mint(burned_amount);
+            self.ibc
+                .transfer_mut()
+                .burn_coins_execute(&escrow_address, &burned_coins.into())?;
+
+            let escrow_address = self
+                .ibc
+                .transfer()
+                .get_escrow_account(&PortId::transfer(), &ChannelId::new(1u64))?;
+
+            let mint_escrowed_coin = Nbtc::mint(burned_amount);
+            self.ibc
+                .transfer_mut()
+                .mint_coins_execute(&escrow_address, &mint_escrowed_coin.into())?;
+        }
+        Ok(())
+    }
+
     fn parse_validator(
         &self,
         validator: &ValidatorQueryInfo,
@@ -576,8 +611,9 @@ mod abci {
             messages::{self, ResponseQuery},
             AbciQuery, BeginBlock, EndBlock, InitChain,
         },
-        coins::{Give, Take, ValidatorQueryInfo, UNBONDING_SECONDS},
+        coins::{Give, Take, ValidatorQueryInfo, BECH32_PREFIX, UNBONDING_SECONDS},
         collections::Map,
+        cosmrs::AccountId,
         encoding::EofTerminatedString,
         ibc::ibc_rs::core::{ics02_client::error::ClientError, ics24_host::path::Path},
         plugins::{BeginBlockCtx, EndBlockCtx, InitChainCtx},
@@ -624,6 +660,8 @@ mod abci {
 
     impl BeginBlock for InnerApp {
         fn begin_block(&mut self, ctx: &BeginBlockCtx) -> Result<()> {
+            // NOTICE: 1532747 -> 1532847 will have an update here
+            self.retire_old_ibc_channel(ctx.height, 1532847)?;
             let now = ctx.header.time.as_ref().unwrap().seconds;
             self.upgrade.step(
                 &vec![Self::CONSENSUS_VERSION].try_into().unwrap(),
@@ -1684,6 +1722,9 @@ mod tests {
         },
         traits::Message,
     };
+    use orga::ibc::ibc_rs::applications::transfer::context::{
+        TokenTransferExecutionContext, TokenTransferValidationContext,
+    };
     use orga::{
         abci::{messages::RequestQuery, AbciQuery, InitChain},
         client::{wallet::Unsigned, AppClient},
@@ -1724,6 +1765,60 @@ mod tests {
             .unwrap()
             .into();
         assert_eq!(init_balance, INITIAL_SUPPLY_ORAIBTC);
+    }
+
+    #[test]
+    fn test_retire_old_ibc_channel() {
+        let mut app = inner_app();
+        // before, mint for channel 0 50 usats & channel 1 100 usats so that afterwards we can burn & mint then test both balances
+        // fixture
+        let channel_0_escrow_account = app
+            .ibc
+            .transfer()
+            .get_escrow_account(&PortId::transfer(), &ChannelId::new(0u64))
+            .unwrap();
+        let channel_1_escrow_account = app
+            .ibc
+            .transfer()
+            .get_escrow_account(&PortId::transfer(), &ChannelId::new(1u64))
+            .unwrap();
+        let channel_0_minted_amount = 50u64;
+        let channel_1_minted_amount = 100u64;
+        app.ibc
+            .transfer_mut()
+            .mint_coins_execute(
+                &channel_0_escrow_account,
+                &Nbtc::mint(channel_0_minted_amount).into(),
+            )
+            .unwrap();
+        app.ibc
+            .transfer_mut()
+            .mint_coins_execute(
+                &channel_1_escrow_account,
+                &Nbtc::mint(channel_1_minted_amount).into(),
+            )
+            .unwrap();
+        let channel_0_escrow_balance = app.escrowed_nbtc(channel_0_escrow_account).unwrap();
+        let channel_1_escrow_balance = app.escrowed_nbtc(channel_1_escrow_account).unwrap();
+        assert_eq!(
+            channel_0_escrow_balance,
+            Amount::new(channel_0_minted_amount)
+        );
+        assert_eq!(
+            channel_1_escrow_balance,
+            Amount::new(channel_1_minted_amount)
+        );
+
+        // testing
+        app.retire_old_ibc_channel(0u64, 0u64).unwrap();
+
+        let channel_0_escrow_balance = app.escrowed_nbtc(channel_0_escrow_account).unwrap();
+        let channel_1_escrow_balance = app.escrowed_nbtc(channel_1_escrow_account).unwrap();
+        assert_eq!(channel_0_escrow_balance.to_string(), "0");
+        assert_eq!(
+            channel_1_escrow_balance,
+            Amount::new(channel_0_minted_amount + channel_1_minted_amount)
+        );
     }
 
     #[test]

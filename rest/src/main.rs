@@ -13,7 +13,11 @@ use nomic::{
     },
     orga::{
         client::{wallet::Unsigned, AppClient},
-        coins::{Address, Amount, Decimal, DelegationInfo, Staking, Symbol, ValidatorQueryInfo},
+        coins::{
+            Address, Amount, Decimal, DelegationInfo, Staking, Symbol, ValidatorQueryInfo,
+            BECH32_PREFIX,
+        },
+        cosmrs::AccountId,
         encoding::EofTerminatedString,
         tendermint::client::HttpClient,
     },
@@ -27,8 +31,11 @@ use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use ibc::clients::ics07_tendermint::client_state::ClientState;
-use ibc::core::ics24_host::identifier::ConnectionId as IbcConnectionId;
+use ibc::core::ics24_host::identifier::{ChannelId, ConnectionId as IbcConnectionId, PortId};
+use ibc::{
+    applications::transfer::{context::TokenTransferValidationContext, error::TokenTransferError},
+    clients::ics07_tendermint::client_state::ClientState,
+};
 use ibc_proto::google::protobuf::Any;
 use ibc_proto::ibc::core::client::v1::IdentifiedClientState;
 use ibc_proto::ibc::core::connection::v1::ConnectionEnd as RawConnectionEnd;
@@ -634,6 +641,28 @@ async fn escrow_address_balance(address: String) -> Result<Value, BadRequest<Str
 
     Ok(json!({
         "escrow_balance":balance
+    }))
+}
+
+// eg: /ibc/escrow_account_balance?channel_identifier=1
+#[get("/ibc/escrow_account_balance?<channel_identifier>")]
+async fn escrow_account_balance(channel_identifier: u64) -> Result<Value, BadRequest<String>> {
+    let escrow_balance: (Address, Amount) = app_client()
+        .query(|app: InnerApp| {
+            let escrow_address = app
+                .ibc
+                .transfer()
+                .get_escrow_account(&PortId::transfer(), &ChannelId::new(channel_identifier))?;
+            Ok((escrow_address, app.escrowed_nbtc(escrow_address)?))
+        })
+        .await
+        .map_err(|e| BadRequest(Some(format!("error: {:?}", e))))?;
+
+    let balance: u64 = escrow_balance.1.into();
+
+    Ok(json!({
+        "escrow_ibc_account": escrow_balance.0.to_string(),
+        "escrow_ibc_balance":balance
     }))
 }
 
@@ -1843,7 +1872,8 @@ fn rocket() -> _ {
             bitcoin_minimum_withdrawal,
             last_completed_checkpoint_tx,
             checkpoint_fee_info,
-            escrow_address_balance
+            escrow_address_balance,
+            escrow_account_balance
         ],
     )
 }
