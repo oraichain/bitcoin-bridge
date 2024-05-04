@@ -660,6 +660,7 @@ mod abci {
 
     impl BeginBlock for InnerApp {
         fn begin_block(&mut self, ctx: &BeginBlockCtx) -> Result<()> {
+            // NOTICE: 1532747 -> 1532847 will have an update here
             self.retire_old_ibc_channel(ctx.height, 1532847)?;
             let now = ctx.header.time.as_ref().unwrap().seconds;
             self.upgrade.step(
