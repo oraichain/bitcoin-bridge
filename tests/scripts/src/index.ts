@@ -144,7 +144,10 @@ async function main(): Promise<void> {
   });
   await Promise.all(initTxs);
 
-  console.log("Starting broadcasting transaction...");
+  await setTimeout(5000);
+  console.log("Starting broadcasting transaction after 5 seconds...");
+  //   console.time("Start timing...");
+  const startTime = new Date().getTime();
   const executeTxs = new Array(numberOfAccount).fill(0).map((_, index) => {
     return handleExecutePerAccount(
       addresses.map((item) => item[1])[index],
@@ -152,6 +155,10 @@ async function main(): Promise<void> {
     );
   });
   await Promise.all(executeTxs);
+  const endTime = new Date().getTime();
+  console.log("Total took:", (endTime - startTime) / 1000);
+
+  console.timeEnd("End timing...");
 }
 
 main().then(
