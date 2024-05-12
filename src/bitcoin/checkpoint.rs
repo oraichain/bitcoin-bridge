@@ -2343,6 +2343,7 @@ impl CheckpointQueue {
             // Do not push if the reserve value is not enough to spend the output & miner fees
             let (input_amount, output_amount) =
                 building.calc_total_input_and_output(&self.config)?;
+            log::info!("Cp miner fees: {:?}", cp_miner_fees);
             if input_amount < output_amount + cp_miner_fees {
                 log::warn!(
                     "Total reserve value is not enough to spend the output + miner fee: {} < {}. Output amount: {}; cp_miner_fees: {}",
@@ -2856,11 +2857,11 @@ mod test {
         let config = Config::default();
         assert_eq!(super::adjust_fee_rate(100, true, &config), 125);
         assert_eq!(super::adjust_fee_rate(100, false, &config), 75);
-        assert_eq!(super::adjust_fee_rate(2, true, &config), 20);
-        assert_eq!(super::adjust_fee_rate(0, true, &config), 20);
-        assert_eq!(super::adjust_fee_rate(2, false, &config), 20);
-        assert_eq!(super::adjust_fee_rate(200, true, &config), 200);
-        assert_eq!(super::adjust_fee_rate(300, true, &config), 200);
+        assert_eq!(super::adjust_fee_rate(2, true, &config), 40);
+        assert_eq!(super::adjust_fee_rate(0, true, &config), 40);
+        assert_eq!(super::adjust_fee_rate(2, false, &config), 40);
+        assert_eq!(super::adjust_fee_rate(200, true, &config), 250);
+        assert_eq!(super::adjust_fee_rate(300, true, &config), 375);
     }
 
     #[cfg(feature = "full")]
@@ -2977,14 +2978,14 @@ mod test {
         maybe_step(10);
 
         assert_eq!(queue.borrow().len().unwrap(), 1);
-        assert_eq!(queue.borrow().building().unwrap().fee_rate, 50);
+        assert_eq!(queue.borrow().building().unwrap().fee_rate, 55);
 
         set_time(1_000);
         maybe_step(10);
 
         assert_eq!(queue.borrow().len().unwrap(), 2);
         assert!(queue.borrow().last_completed_index().is_err());
-        assert_eq!(queue.borrow().building().unwrap().fee_rate, 50);
+        assert_eq!(queue.borrow().building().unwrap().fee_rate, 55);
 
         sign_cp(11);
 
@@ -3006,7 +3007,7 @@ mod test {
         sign_cp(11);
 
         assert_eq!(queue.borrow().len().unwrap(), 3);
-        assert_eq!(queue.borrow().building().unwrap().fee_rate, 50);
+        assert_eq!(queue.borrow().building().unwrap().fee_rate, 55);
 
         set_time(3_000);
         push_deposit();
@@ -3014,7 +3015,7 @@ mod test {
         sign_cp(11);
 
         assert_eq!(queue.borrow().len().unwrap(), 4);
-        assert_eq!(queue.borrow().building().unwrap().fee_rate, 50);
+        assert_eq!(queue.borrow().building().unwrap().fee_rate, 55);
 
         set_time(4_000);
         push_deposit();
@@ -3022,7 +3023,7 @@ mod test {
         sign_cp(12);
 
         assert_eq!(queue.borrow().len().unwrap(), 5);
-        assert_eq!(queue.borrow().building().unwrap().fee_rate, 50);
+        assert_eq!(queue.borrow().building().unwrap().fee_rate, 55);
 
         set_time(5_000);
         push_deposit();
@@ -3030,7 +3031,7 @@ mod test {
         sign_cp(13);
 
         assert_eq!(queue.borrow().len().unwrap(), 6);
-        assert_eq!(queue.borrow().building().unwrap().fee_rate, 62);
+        assert_eq!(queue.borrow().building().unwrap().fee_rate, 68);
 
         set_time(6_000);
         push_deposit();
@@ -3038,7 +3039,7 @@ mod test {
         sign_cp(13);
 
         assert_eq!(queue.borrow().len().unwrap(), 7);
-        assert_eq!(queue.borrow().building().unwrap().fee_rate, 62);
+        assert_eq!(queue.borrow().building().unwrap().fee_rate, 68);
 
         set_time(7_000);
         push_deposit();
@@ -3046,7 +3047,7 @@ mod test {
         sign_cp(14);
 
         assert_eq!(queue.borrow().len().unwrap(), 8);
-        assert_eq!(queue.borrow().building().unwrap().fee_rate, 77);
+        assert_eq!(queue.borrow().building().unwrap().fee_rate, 85);
 
         confirm_cp(5, 14);
         set_time(8_000);
@@ -3055,7 +3056,7 @@ mod test {
         sign_cp(15);
 
         assert_eq!(queue.borrow().len().unwrap(), 9);
-        assert_eq!(queue.borrow().building().unwrap().fee_rate, 77);
+        assert_eq!(queue.borrow().building().unwrap().fee_rate, 85);
 
         confirm_cp(7, 15);
         set_time(9_000);
@@ -3064,7 +3065,7 @@ mod test {
         sign_cp(16);
 
         assert_eq!(queue.borrow().len().unwrap(), 10);
-        assert_eq!(queue.borrow().building().unwrap().fee_rate, 57);
+        assert_eq!(queue.borrow().building().unwrap().fee_rate, 63);
 
         set_time(10_000);
         push_deposit();
@@ -3072,7 +3073,7 @@ mod test {
         sign_cp(17);
 
         assert_eq!(queue.borrow().len().unwrap(), 11);
-        assert_eq!(queue.borrow().building().unwrap().fee_rate, 57);
+        assert_eq!(queue.borrow().building().unwrap().fee_rate, 63);
     }
 
     #[cfg(feature = "full")]
@@ -3620,7 +3621,7 @@ mod test {
             assert_eq!(is_should_push, true);
         }
         // we accept input = output + fees
-        push_withdraw(99_988_350);
+        push_withdraw(99_958_350);
         {
             let is_should_push = queue
                 .borrow_mut()
@@ -3636,15 +3637,15 @@ mod test {
         set_time(200);
         maybe_step(9);
         push_deposit(100_000_000);
-        push_withdraw(129_991_950);
+        push_withdraw(130_019_980);
         {
             let borrow_queue = queue.borrow();
             let cp = borrow_queue.building().unwrap();
             let (input_amount, output_amount) = cp
                 .calc_total_input_and_output(&borrow_queue.config)
                 .unwrap();
-            assert_eq!(input_amount, 129_991_950);
-            assert_eq!(output_amount, 129_991_950);
+            assert_eq!(input_amount, 130_019_980);
+            assert_eq!(output_amount, 130_019_980);
         }
         {
             let is_should_push = queue

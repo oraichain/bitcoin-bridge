@@ -3,7 +3,7 @@ extern crate rocket;
 
 use bitcoin::Address as BitcoinAddress;
 use chrono::{TimeZone, Utc};
-use nomic::{
+use oraibtc::{
     app::{InnerApp, Nom},
     bitcoin::{
         adapter::Adapter,
@@ -55,7 +55,7 @@ fn app_host() -> &'static str {
 }
 
 fn app_client() -> AppClient<InnerApp, InnerApp, HttpClient, Nom, Unsigned> {
-    nomic::app_client(app_host())
+    oraibtc::app_client(app_host())
 }
 
 async fn query_balances(address: &str) -> Result<Vec<Balance>, BadRequest<String>> {
@@ -641,9 +641,9 @@ async fn escrow_address_balance(address: String) -> Result<Value, BadRequest<Str
 async fn bitcoin_checkpoint(checkpoint_index: Option<u32>) -> Result<Value, BadRequest<String>> {
     let data = app_client()
         .query(|app: InnerApp| {
-            let checkpoint: nomic::orga::collections::Ref<
+            let checkpoint: oraibtc::orga::collections::Ref<
                 '_,
-                nomic::bitcoin::checkpoint::Checkpoint,
+                oraibtc::bitcoin::checkpoint::Checkpoint,
             >;
             if checkpoint_index.is_some() {
                 checkpoint = app.bitcoin.checkpoints.get(checkpoint_index.unwrap())?;

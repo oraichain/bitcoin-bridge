@@ -108,7 +108,7 @@ Start your Nomic node:
 # your-wanted-chain-id is the chain id you want your local network to be. If it does not exist => auto create new, else reuse the existing one
 
 # the env variables will only apply to the first node of the network when the chain initializes => the below command is only for the first node.
-FUNDED_ADDRESS=<your-nomic-address-for-funding> FUNDED_ORAIBTC_AMOUNT=<your-oraibtc-for-funding> FUNDED_USAT_AMOUNT=<your-usat-for-funding> FUNDED_ORAIBTC_AMOUNT=<amount> FUNDED_USAT_AMOUNT=<amount> nomic start --chain-id <your-wanted-chain-id>
+FUNDED_ADDRESS=<your-nomic-address-for-funding> FUNDED_NOMIC_AMOUNT=<your-oraibtc-for-funding> FUNDED_USAT_AMOUNT=<your-usat-for-funding> FUNDED_NOMIC_AMOUNT=<amount> FUNDED_USAT_AMOUNT=<amount> nomic start --chain-id <your-wanted-chain-id>
 
 # Run the below command to join the network as a full node
 nomic start \
@@ -118,7 +118,7 @@ nomic start \
   -- --p2p.seeds <other-node-id>@<other-node-ip>:26656
 
 # eg:
-FUNDED_ADDRESS=oraibtc1ehmhqcn8erf3dgavrca69zgp4rtxj5kqzpga4j FUNDED_ORAIBTC_AMOUNT=1000000000000 FUNDED_USAT_AMOUNT=0 nomic start --chain-id oraibtc-subnet-1
+FUNDED_ADDRESS=oraibtc1ehmhqcn8erf3dgavrca69zgp4rtxj5kqzpga4j FUNDED_NOMIC_AMOUNT=1000000000000 FUNDED_USAT_AMOUNT=0 nomic start --chain-id oraibtc-subnet-1
 ```
 
 This will run the Nomic state machine and a Tendermint process. For new nodes the statesync process will run automatically to get the node up to speed with the current chain.

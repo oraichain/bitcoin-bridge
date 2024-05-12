@@ -1,8 +1,8 @@
 [package]
-authors = ["The Turbofish Team <hello@turbofish.org>"]
-default-run = "nomic"
+authors = ["Oraichain Labs <hello@oraibtc.org>"]
+default-run = "oraibtc"
 edition = "2021"
-name = "nomic"
+name = "oraibtc"
 version = "8.0.0"
 
 [dependencies]
@@ -100,7 +100,7 @@ testnet = []
 overflow-checks = true
 
 [[bin]]
-name = "nomic"
+name = "oraibtc"
 
 [[bin]]
 name = "store-diff"

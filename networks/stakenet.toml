@@ -1,24 +1,24 @@
+btc_relayer = [
+  "https://btc.relayer.orai.io:443",
+]
 state_sync_rpc = [
-  "http://161.35.51.124:26667",
-  "http://161.35.51.124:26667"
+  "http://3.144.94.154:26667",
+  "http://3.144.94.154:26667",
 ]
 tendermint_flags = [
-    "--p2p.seeds",
-    """
-      238120dfe716082754048057c1fdc3d6f09609b5@161.35.51.124:26656
+  "--p2p.seeds",
+  """
+      ffb810640af82a8bd42759ddd46585929da792fd@3.144.94.154:26656
     """,
 ]
-btc_relayer = [
-  "https://relayer.nomic.mappum.io:8443"
-]
 
-legacy_version = "7.0.x"
+legacy_version = "8.0.x"
 
 genesis = """
 {
-  "genesis_time": "2022-07-04T00:00:00Z",
-  "chain_id": "nomic-stakenet-3",
-  "initial_height": "0",
+  "genesis_time": "2024-03-05T23:26:47.43861815Z",
+  "chain_id": "oraibtc-mainnet-1",
+  "initial_height": "1",
   "consensus_params": {
     "block": {
       "max_bytes": "22020096",

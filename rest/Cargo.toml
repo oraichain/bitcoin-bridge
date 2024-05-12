@@ -1,28 +1,28 @@
 [package]
+edition = "2021"
 name = "nomic-rest"
 version = "0.1.3"
-edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rocket = { version = "0.5.0-rc.1", features = ["json", "tls"] }
-nomic = { path = "..", default-features = false, features = [
-    "full",
-    "feat-ibc",
-] }
-bitcoin = { version = "0.29.2", features = ["serde"] }
-hex = "0.4.3"
-tendermint-rpc = { version = "=0.23.7", features = ["http-client"] }
-tendermint = "=0.23.7"
-tendermint-proto = "=0.23.9"
-ibc = { git = "https://github.com/oraichain/ibc-rs", rev = "b7c1f92d5f8dd20c1f675adae2d9a256826c2197", features = ["borsh"] }
-ibc-proto = { version = "0.32.1", default-features = false, features = ["std", "borsh"] }
 base64 = "0.13.0"
+bech32 = {version = "0.9.1"}
+bitcoin = {version = "0.29.2", features = ["serde"]}
+chrono = {version = "0.4.31", features = ["serde"]}
+hex = "0.4.3"
+ibc = {git = "https://github.com/oraichain/ibc-rs", rev = "b7c1f92d5f8dd20c1f675adae2d9a256826c2197", features = ["borsh"]}
+ibc-proto = {version = "0.32.1", default-features = false, features = ["std", "borsh"]}
+lazy_static = "1.4.0"
+oraibtc = {path = "..", default-features = false, features = [
+  "full",
+  "feat-ibc",
+]}
+rocket = {version = "0.5.0-rc.1", features = ["json", "tls"]}
 serde = "1.0.136"
 serde_json = "1.0.78"
-lazy_static = "1.4.0"
-tokio = "1.19.2"
-chrono = { version = "0.4.31", features = ["serde"] }
 sha2 = "0.10.6"
-bech32 = { version = "0.9.1" }
+tendermint = "=0.23.7"
+tendermint-proto = "=0.23.9"
+tendermint-rpc = {version = "=0.23.7", features = ["http-client"]}
+tokio = "1.19.2"

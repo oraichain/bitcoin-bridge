@@ -110,22 +110,6 @@ impl MigrateFrom<InnerAppV4> for InnerAppV5 {
             let work_header = WorkHeader::new(wrapped_header.clone(), wrapped_header.work());
             other.bitcoin.headers.current_work = Adapter::new(work_header.work());
             other.bitcoin.headers.deque.push_back(work_header)?;
-
-            // backfill checkpoint history
-            use bitcoin::hashes::hex::FromHex;
-            let scripts = include_str!("../../stakenet_reserve_scripts.csv")
-                .lines()
-                .map(|line| {
-                    let mut parts = line.split(',');
-                    parts.next().unwrap();
-                    parts.next().unwrap()
-                })
-                .map(|script_hex| bitcoin::Script::from_hex(script_hex).unwrap());
-            other.bitcoin.checkpoints.backfill(
-                4285,
-                scripts,
-                other.bitcoin.checkpoints.config.sigset_threshold,
-            )?;
         }
 
         Ok(Self {

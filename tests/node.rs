@@ -1,6 +1,6 @@
 use chrono::{TimeZone, Utc};
 use log::info;
-use nomic::utils::{poll_for_blocks, set_time, setup_test_app};
+use oraibtc::utils::{poll_for_blocks, set_time, setup_test_app};
 use orga::abci::Node;
 use orga::plugins::Time;
 use serial_test::serial;
@@ -31,11 +31,12 @@ async fn node_shutdown() {
         let _ = setup_test_app(&path, 4, None, None, None);
 
         info!("Starting Nomic node...");
-        let _child = Node::<nomic::app::App>::new(node_path, Some("nomic-e2e"), Default::default())
-            .await
-            .run()
-            .await
-            .unwrap();
+        let _child =
+            Node::<oraibtc::app::App>::new(node_path, Some("oraibtc-e2e"), Default::default())
+                .await
+                .run()
+                .await
+                .unwrap();
 
         poll_for_blocks().await;
     }

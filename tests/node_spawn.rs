@@ -7,7 +7,7 @@ fn fresh_local_network() {
     let dir = tempfile::tempdir().unwrap();
     let home = dir.path();
 
-    let mut cmd = std::process::Command::new(env!("CARGO_BIN_EXE_nomic"));
+    let mut cmd = std::process::Command::new(env!("CARGO_BIN_EXE_oraibtc"));
     cmd.env("STOP_HEIGHT", "2");
     cmd.args(["start", "--home", home.to_str().unwrap()]);
 
@@ -15,7 +15,7 @@ fn fresh_local_network() {
     assert_eq!(output.status.code().unwrap(), 138);
 
     let package_ver = env!("CARGO_PKG_VERSION");
-    assert!(home.join(format!("bin/nomic-{}", package_ver)).exists());
+    assert!(home.join(format!("bin/oraibtc-{}", package_ver)).exists());
     assert!(home.join("tendermint/config/genesis.json").exists());
 
     {
@@ -26,7 +26,7 @@ fn fresh_local_network() {
         );
     }
 
-    let mut cmd = std::process::Command::new(env!("CARGO_BIN_EXE_nomic"));
+    let mut cmd = std::process::Command::new(env!("CARGO_BIN_EXE_oraibtc"));
     cmd.env("STOP_HEIGHT", "4");
     cmd.args(["start", "--home", home.to_str().unwrap()]);
 
@@ -49,7 +49,7 @@ fn migrate() {
     let dir = tempfile::tempdir().unwrap();
     let home = dir.path();
 
-    let mut cmd = std::process::Command::new(env!("CARGO_BIN_EXE_nomic"));
+    let mut cmd = std::process::Command::new(env!("CARGO_BIN_EXE_oraibtc"));
     cmd.env("STOP_HEIGHT", "2");
     cmd.args([
         "start",
@@ -64,7 +64,7 @@ fn migrate() {
     println!("Exited first spawn");
 
     let package_ver = env!("CARGO_PKG_VERSION");
-    assert!(home.join(format!("bin/nomic-{}", package_ver)).exists());
+    assert!(home.join(format!("bin/oraibtc-{}", package_ver)).exists());
     assert!(home.join("tendermint/config/genesis.json").exists());
 
     {
@@ -75,7 +75,7 @@ fn migrate() {
         );
     }
 
-    let mut cmd = std::process::Command::new(env!("CARGO_BIN_EXE_nomic"));
+    let mut cmd = std::process::Command::new(env!("CARGO_BIN_EXE_oraibtc"));
     cmd.env("STOP_HEIGHT", "4");
     cmd.args(["start", "--home", home.to_str().unwrap()]);
 
@@ -98,7 +98,7 @@ fn testnet() {
     let dir = tempfile::tempdir().unwrap();
     let home = dir.path();
 
-    let mut cmd = std::process::Command::new(env!("CARGO_BIN_EXE_nomic"));
+    let mut cmd = std::process::Command::new(env!("CARGO_BIN_EXE_oraibtc"));
     cmd.env("NOMIC_EXIT_ON_START", "1");
     cmd.args([
         "start",
@@ -112,6 +112,6 @@ fn testnet() {
     assert_eq!(output.status.code().unwrap(), 139);
 
     let package_ver = env!("CARGO_PKG_VERSION");
-    assert!(home.join(format!("bin/nomic-{}", package_ver)).exists());
+    assert!(home.join(format!("bin/oraibtc-{}", package_ver)).exists());
     assert!(home.join("tendermint/config/genesis.json").exists());
 }

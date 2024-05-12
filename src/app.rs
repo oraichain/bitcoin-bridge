@@ -366,7 +366,7 @@ impl InnerApp {
         {
             // mint uoraibtc and nbtc for a funded address given in the env variable
             if let Ok(funded_address) = env::var("FUNDED_ADDRESS") {
-                let funded_oraibtc_amount = env::var("FUNDED_ORAIBTC_AMOUNT").unwrap_or_default();
+                let funded_oraibtc_amount = env::var("FUNDED_NOMIC_AMOUNT").unwrap_or_default();
                 let funded_usat_amount = env::var("FUNDED_USAT_AMOUNT").unwrap_or_default();
                 let unom_coin: Coin<Nom> = Amount::new(
                     funded_oraibtc_amount

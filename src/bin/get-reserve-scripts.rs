@@ -27,9 +27,9 @@ pub async fn main() {
     };
     let btc_client = Client::new(rpc_url, auth).await.unwrap();
 
-    let nomic_client = nomic::app_client("http://localhost:26657");
+    let oraibtc_client = oraibtc::app_client("http://localhost:26657");
 
-    let (last_conf_index, last_conf_cp) = nomic_client
+    let (last_conf_index, last_conf_cp) = oraibtc_client
         .query(|app| {
             let conf_index = app.bitcoin.checkpoints.confirmed_index.unwrap();
             let conf_cp = app.bitcoin.checkpoints.get(conf_index)?;

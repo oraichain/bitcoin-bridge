@@ -12,23 +12,23 @@ use chrono::TimeZone;
 use chrono::Utc;
 use futures::FutureExt;
 use log::info;
-use nomic::app::Dest;
-use nomic::app::{InnerApp, Nom};
-use nomic::bitcoin::adapter::Adapter;
-use nomic::bitcoin::checkpoint::CheckpointStatus;
-use nomic::bitcoin::checkpoint::Config as CheckpointConfig;
-use nomic::bitcoin::deposit_index::{Deposit, DepositInfo};
-use nomic::bitcoin::header_queue::Config as HeaderQueueConfig;
-use nomic::bitcoin::relayer::DepositAddress;
-use nomic::bitcoin::relayer::Relayer;
-use nomic::bitcoin::signatory::SignatorySet;
-use nomic::bitcoin::signer::Signer;
-use nomic::bitcoin::threshold_sig::Pubkey;
-use nomic::bitcoin::Config as BitcoinConfig;
-use nomic::constants::DEFAULT_MAX_SCAN_CHECKPOINTS_CONFIRMATIONS;
-use nomic::error::{Error, Result};
-use nomic::utils::*;
-use nomic::utils::{
+use oraibtc::app::Dest;
+use oraibtc::app::{InnerApp, Nom};
+use oraibtc::bitcoin::adapter::Adapter;
+use oraibtc::bitcoin::checkpoint::CheckpointStatus;
+use oraibtc::bitcoin::checkpoint::Config as CheckpointConfig;
+use oraibtc::bitcoin::deposit_index::{Deposit, DepositInfo};
+use oraibtc::bitcoin::header_queue::Config as HeaderQueueConfig;
+use oraibtc::bitcoin::relayer::DepositAddress;
+use oraibtc::bitcoin::relayer::Relayer;
+use oraibtc::bitcoin::signatory::SignatorySet;
+use oraibtc::bitcoin::signer::Signer;
+use oraibtc::bitcoin::threshold_sig::Pubkey;
+use oraibtc::bitcoin::Config as BitcoinConfig;
+use oraibtc::constants::DEFAULT_MAX_SCAN_CHECKPOINTS_CONFIRMATIONS;
+use oraibtc::error::{Error, Result};
+use oraibtc::utils::*;
+use oraibtc::utils::{
     declare_validator, poll_for_active_sigset, poll_for_blocks, poll_for_updated_balance,
     populate_bitcoin_block, retry, set_time, setup_test_app, setup_test_signer,
     test_bitcoin_client, NomicTestWallet,
@@ -58,7 +58,7 @@ static INIT: Once = Once::new();
 
 fn app_client() -> AppClient<InnerApp, InnerApp, orga::tendermint::client::HttpClient, Nom, Unsigned>
 {
-    nomic::app_client("http://localhost:26657")
+    oraibtc::app_client("http://localhost:26657")
 }
 
 async fn generate_deposit_address(address: &Address) -> Result<DepositAddress> {
@@ -117,17 +117,17 @@ pub async fn broadcast_deposit_addr(
     }
 }
 
-async fn set_recovery_address(nomic_account: NomicTestWallet) -> Result<()> {
+async fn set_recovery_address(oraibtc_account: NomicTestWallet) -> Result<()> {
     info!("Setting recovery address...");
 
     app_client()
-        .with_wallet(nomic_account.wallet)
+        .with_wallet(oraibtc_account.wallet)
         .call(
             move |app| build_call!(app.accounts.take_as_funding((MIN_FEE).into())),
             move |app| {
                 build_call!(app
                     .bitcoin
-                    .set_recovery_script(Adapter::new(nomic_account.script.clone())))
+                    .set_recovery_script(Adapter::new(oraibtc_account.script.clone())))
             },
         )
         .await?;
@@ -166,14 +166,14 @@ async fn deposit_bitcoin(
 }
 
 async fn withdraw_bitcoin(
-    nomic_account: &NomicTestWallet,
+    oraibtc_account: &NomicTestWallet,
     amount: bitcoin::Amount,
     dest_address: &bitcoin::Address,
 ) -> Result<()> {
-    let dest_script = nomic::bitcoin::adapter::Adapter::new(dest_address.script_pubkey());
+    let dest_script = oraibtc::bitcoin::adapter::Adapter::new(dest_address.script_pubkey());
     let usats = amount.to_sat() * 1_000_000;
     app_client()
-        .with_wallet(nomic_account.wallet.clone())
+        .with_wallet(oraibtc_account.wallet.clone())
         .call(
             move |app| build_call!(app.withdraw_nbtc(dest_script, Amount::from(usats))),
             |app| build_call!(app.app_noop()),
@@ -259,7 +259,7 @@ async fn bitcoin_test() {
         None,
     );
 
-    let node = Node::<nomic::app::App>::new(node_path, Some("nomic-e2e"), Default::default());
+    let node = Node::<oraibtc::app::App>::new(node_path, Some("oraibtc-e2e"), Default::default());
     let _node_child = node.await.run().await.unwrap();
 
     let rpc_addr = "http://localhost:26657".to_string();
@@ -340,9 +340,9 @@ async fn bitcoin_test() {
 
     let test = async {
         let val_priv_key = load_privkey().unwrap();
-        let nomic_wallet = DerivedKey::from_secret_key(val_priv_key);
+        let oraibtc_wallet = DerivedKey::from_secret_key(val_priv_key);
         let consensus_key = load_consensus_key(&path)?;
-        declare_validator(consensus_key, nomic_wallet, 100_000)
+        declare_validator(consensus_key, oraibtc_wallet, 100_000)
             .await
             .unwrap();
         app_client()
@@ -366,7 +366,7 @@ async fn bitcoin_test() {
             )
             .await?;
 
-        let wallet = retry(|| bitcoind.create_wallet("nomic-integration-test"), 10).unwrap();
+        let wallet = retry(|| bitcoind.create_wallet("oraibtc-integration-test"), 10).unwrap();
         let wallet_address = wallet.get_new_address(None, None).unwrap();
         let async_wallet_address =
             bitcoincore_rpc_async::bitcoin::Address::from_str(&wallet_address.to_string()).unwrap();
@@ -462,7 +462,7 @@ async fn bitcoin_test() {
         // what does this do?
         tx.send(Some(())).await.unwrap();
 
-        let expected_balance = 999983410000000;
+        let expected_balance = 999981751000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
@@ -506,7 +506,7 @@ async fn bitcoin_test() {
         poll_for_bitcoin_header(1133).await.unwrap();
         poll_for_confirmed_checkpoint(1).await;
 
-        let expected_balance = 39975115000000;
+        let expected_balance = 39972627000000;
         let balance = poll_for_updated_balance(funded_accounts[1].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
@@ -556,7 +556,7 @@ async fn bitcoin_test() {
             .unwrap();
         assert!(signer_jailed);
 
-        let expected_balance = 999918598000000;
+        let expected_balance = 999916939000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
@@ -603,7 +603,7 @@ async fn bitcoin_test() {
                 }
             }
         }
-        assert_eq!(signatory_balance, 40018371);
+        assert_eq!(signatory_balance, 40014817);
 
         let funded_account_balances: Vec<_> = funded_accounts
             .iter()
@@ -618,7 +618,7 @@ async fn bitcoin_test() {
             })
             .collect();
 
-        let expected_account_balances: Vec<u64> = vec![999912919, 0, 0, 0];
+        let expected_account_balances: Vec<u64> = vec![999910646, 0, 0, 0];
         assert_eq!(funded_account_balances, expected_account_balances);
 
         for (i, account) in funded_accounts[0..1].iter().enumerate() {
@@ -775,7 +775,8 @@ async fn signing_completed_checkpoint_test() {
     );
 
     info!("Starting Nomic node...");
-    let node = Node::<nomic::app::App>::new(node_path, Some("nomic-e2e"), Default::default()).await;
+    let node =
+        Node::<oraibtc::app::App>::new(node_path, Some("oraibtc-e2e"), Default::default()).await;
     let node_child = node.run().await.unwrap();
 
     let rpc_addr = "http://localhost:26657".to_string();
@@ -866,9 +867,9 @@ async fn signing_completed_checkpoint_test() {
 
     let test = async {
         let val_priv_key = load_privkey().unwrap();
-        let nomic_wallet = DerivedKey::from_secret_key(val_priv_key);
+        let oraibtc_wallet = DerivedKey::from_secret_key(val_priv_key);
         let consensus_key = load_consensus_key(&path)?;
-        declare_validator(consensus_key, nomic_wallet, 100_000)
+        declare_validator(consensus_key, oraibtc_wallet, 100_000)
             .await
             .unwrap();
         app_client()
@@ -896,7 +897,7 @@ async fn signing_completed_checkpoint_test() {
             )
             .await?;
 
-        let wallet = retry(|| bitcoind.create_wallet("nomic-integration-test"), 10).unwrap();
+        let wallet = retry(|| bitcoind.create_wallet("oraibtc-integration-test"), 10).unwrap();
         let wallet_address = wallet.get_new_address(None, None).unwrap();
         let async_wallet_address =
             bitcoincore_rpc_async::bitcoin::Address::from_str(&wallet_address.to_string()).unwrap();
@@ -1080,7 +1081,7 @@ async fn pending_deposits() {
         Some(bitcoin_config),
     );
 
-    let node = Node::<nomic::app::App>::new(node_path, Some("nomic-e2e"), Default::default());
+    let node = Node::<oraibtc::app::App>::new(node_path, Some("oraibtc-e2e"), Default::default());
     let node_child = node.await.run().await.unwrap();
 
     let rpc_addr = "http://localhost:26657".to_string();
@@ -1118,9 +1119,9 @@ async fn pending_deposits() {
 
     let test = async {
         let val_priv_key = load_privkey().unwrap();
-        let nomic_wallet = DerivedKey::from_secret_key(val_priv_key);
+        let oraibtc_wallet = DerivedKey::from_secret_key(val_priv_key);
         let consensus_key = load_consensus_key(&path)?;
-        declare_validator(consensus_key, nomic_wallet, 100_000)
+        declare_validator(consensus_key, oraibtc_wallet, 100_000)
             .await
             .unwrap();
         app_client()
@@ -1131,7 +1132,7 @@ async fn pending_deposits() {
             )
             .await?;
 
-        let wallet = retry(|| bitcoind.create_wallet("nomic-integration-test"), 10).unwrap();
+        let wallet = retry(|| bitcoind.create_wallet("oraibtc-integration-test"), 10).unwrap();
         let wallet_address = wallet.get_new_address(None, None).unwrap();
         let async_wallet_address =
             bitcoincore_rpc_async::bitcoin::Address::from_str(&wallet_address.to_string()).unwrap();
@@ -1292,7 +1293,7 @@ async fn signer_key_updating() {
         None,
     );
 
-    let node = Node::<nomic::app::App>::new(node_path, Some("nomic-e2e"), Default::default());
+    let node = Node::<oraibtc::app::App>::new(node_path, Some("oraibtc-e2e"), Default::default());
     let _node_child = node.await.run().await.unwrap();
 
     let rpc_addr = "http://localhost:26657".to_string();
@@ -1352,9 +1353,9 @@ async fn signer_key_updating() {
 
     let test = async {
         let val_priv_key = load_privkey().unwrap();
-        let nomic_wallet = DerivedKey::from_secret_key(val_priv_key);
+        let oraibtc_wallet = DerivedKey::from_secret_key(val_priv_key);
         let consensus_key = load_consensus_key(&path)?;
-        declare_validator(consensus_key, nomic_wallet, 100_000)
+        declare_validator(consensus_key, oraibtc_wallet, 100_000)
             .await
             .unwrap();
         app_client()
@@ -1365,7 +1366,7 @@ async fn signer_key_updating() {
             )
             .await?;
 
-        let wallet = retry(|| bitcoind.create_wallet("nomic-integration-test"), 10).unwrap();
+        let wallet = retry(|| bitcoind.create_wallet("oraibtc-integration-test"), 10).unwrap();
         let wallet_address = wallet.get_new_address(None, None).unwrap();
         let async_wallet_address =
             bitcoincore_rpc_async::bitcoin::Address::from_str(&wallet_address.to_string()).unwrap();
@@ -1669,7 +1670,7 @@ async fn recover_expired_deposit() {
         Some(bitcoin_config),
     );
 
-    let node = Node::<nomic::app::App>::new(node_path, Some("nomic-e2e"), Default::default());
+    let node = Node::<oraibtc::app::App>::new(node_path, Some("oraibtc-e2e"), Default::default());
     let node_child = node.await.run().await.unwrap();
 
     let rpc_addr = "http://localhost:26657".to_string();
@@ -1720,20 +1721,20 @@ async fn recover_expired_deposit() {
 
     let test = async {
         let val_priv_key = load_privkey().unwrap();
-        let nomic_wallet = DerivedKey::from_secret_key(val_priv_key);
+        let oraibtc_wallet = DerivedKey::from_secret_key(val_priv_key);
         let consensus_key = load_consensus_key(&path)?;
-        declare_validator(consensus_key, nomic_wallet.clone(), 100_000)
+        declare_validator(consensus_key, oraibtc_wallet.clone(), 100_000)
             .await
             .unwrap();
         app_client()
-            .with_wallet(nomic_wallet.clone())
+            .with_wallet(oraibtc_wallet.clone())
             .call(
                 |app| build_call!(app.accounts.take_as_funding(MIN_FEE.into())),
                 |app| build_call!(app.bitcoin.set_signatory_key(xpub.into())),
             )
             .await?;
 
-        let wallet = retry(|| bitcoind.create_wallet("nomic-integration-test"), 10).unwrap();
+        let wallet = retry(|| bitcoind.create_wallet("oraibtc-integration-test"), 10).unwrap();
         let wallet_address = wallet.get_new_address(None, None).unwrap();
         let async_wallet_address =
             bitcoincore_rpc_async::bitcoin::Address::from_str(&wallet_address.to_string()).unwrap();
@@ -1842,7 +1843,7 @@ async fn recover_expired_deposit() {
             .unwrap();
         poll_for_bitcoin_header(1143).await.unwrap();
 
-        let expected_balance = 39978710000000;
+        let expected_balance = 39976581000000;
         let balance = poll_for_updated_balance(funded_accounts[1].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
@@ -1929,7 +1930,7 @@ async fn generate_deposit_expired() {
         Some(bitcoin_config),
     );
 
-    let node = Node::<nomic::app::App>::new(node_path, Some("nomic-e2e"), Default::default());
+    let node = Node::<oraibtc::app::App>::new(node_path, Some("oraibtc-e2e"), Default::default());
     let node_child = node.await.run().await.unwrap();
 
     let rpc_addr = "http://localhost:26657".to_string();
@@ -1970,20 +1971,20 @@ async fn generate_deposit_expired() {
 
     let test = async {
         let val_priv_key = load_privkey().unwrap();
-        let nomic_wallet = DerivedKey::from_secret_key(val_priv_key);
+        let oraibtc_wallet = DerivedKey::from_secret_key(val_priv_key);
         let consensus_key = load_consensus_key(&path)?;
-        declare_validator(consensus_key, nomic_wallet.clone(), 100_000)
+        declare_validator(consensus_key, oraibtc_wallet.clone(), 100_000)
             .await
             .unwrap();
         app_client()
-            .with_wallet(nomic_wallet.clone())
+            .with_wallet(oraibtc_wallet.clone())
             .call(
                 |app| build_call!(app.accounts.take_as_funding(MIN_FEE.into())),
                 |app| build_call!(app.bitcoin.set_signatory_key(xpub.into())),
             )
             .await?;
 
-        let wallet = retry(|| bitcoind.create_wallet("nomic-integration-test"), 10).unwrap();
+        let wallet = retry(|| bitcoind.create_wallet("oraibtc-integration-test"), 10).unwrap();
         let wallet_address = wallet.get_new_address(None, None).unwrap();
         let async_wallet_address =
             bitcoincore_rpc_async::bitcoin::Address::from_str(&wallet_address.to_string()).unwrap();
@@ -2095,7 +2096,7 @@ async fn test_emergency_disbursal() {
         None,
     );
 
-    let node = Node::<nomic::app::App>::new(node_path, Some("nomic-e2e"), Default::default());
+    let node = Node::<oraibtc::app::App>::new(node_path, Some("oraibtc-e2e"), Default::default());
     let _node_child = node.await.run().await.unwrap();
 
     let rpc_addr = "http://localhost:26657".to_string();
@@ -2171,9 +2172,9 @@ async fn test_emergency_disbursal() {
 
     let test = async {
         let val_priv_key = load_privkey().unwrap();
-        let nomic_wallet = DerivedKey::from_secret_key(val_priv_key);
+        let oraibtc_wallet = DerivedKey::from_secret_key(val_priv_key);
         let consensus_key = load_consensus_key(&path)?;
-        declare_validator(consensus_key, nomic_wallet, 100_000)
+        declare_validator(consensus_key, oraibtc_wallet, 100_000)
             .await
             .unwrap();
         app_client()
@@ -2197,7 +2198,7 @@ async fn test_emergency_disbursal() {
             )
             .await?;
 
-        let wallet = retry(|| bitcoind.create_wallet("nomic-integration-test"), 10).unwrap();
+        let wallet = retry(|| bitcoind.create_wallet("oraibtc-integration-test"), 10).unwrap();
         let wallet_address = wallet.get_new_address(None, None).unwrap();
         let async_wallet_address =
             bitcoincore_rpc_async::bitcoin::Address::from_str(&wallet_address.to_string()).unwrap();
@@ -2294,7 +2295,7 @@ async fn test_emergency_disbursal() {
         // balance only gets updated after moving pass bitcoin header & checkpoint has confirmed
         poll_for_confirmed_checkpoint(0).await;
 
-        let expected_balance = 999983410000000;
+        let expected_balance = 999981751000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
@@ -2316,8 +2317,11 @@ async fn test_emergency_disbursal() {
         tokio::time::sleep(Duration::from_secs(20)).await;
         let mut relayed = HashSet::new();
         let funded_bitcoin_address = funded_accounts[0].bitcoin_address();
-        let funded_bitcoin_wallet =
-            retry(|| bitcoind.create_wallet("nomic-funded-bitcoin-wallet"), 10).unwrap();
+        let funded_bitcoin_wallet = retry(
+            || bitcoind.create_wallet("oraibtc-funded-bitcoin-wallet"),
+            10,
+        )
+        .unwrap();
         funded_bitcoin_wallet
             .import_address(&funded_bitcoin_address, Some("funded"), None)
             .unwrap();
@@ -2474,7 +2478,7 @@ async fn test_withdraw() {
         None,
     );
 
-    let node = Node::<nomic::app::App>::new(node_path, Some("nomic-e2e"), Default::default());
+    let node = Node::<oraibtc::app::App>::new(node_path, Some("oraibtc-e2e"), Default::default());
     let _node_child = node.await.run().await.unwrap();
 
     let rpc_addr = "http://localhost:26657".to_string();
@@ -2556,9 +2560,9 @@ async fn test_withdraw() {
 
     let test = async {
         let val_priv_key = load_privkey().unwrap();
-        let nomic_wallet = DerivedKey::from_secret_key(val_priv_key);
+        let oraibtc_wallet = DerivedKey::from_secret_key(val_priv_key);
         let consensus_key = load_consensus_key(&path)?;
-        declare_validator(consensus_key, nomic_wallet, 100_000)
+        declare_validator(consensus_key, oraibtc_wallet, 100_000)
             .await
             .unwrap();
         app_client()
@@ -2582,7 +2586,7 @@ async fn test_withdraw() {
             )
             .await?;
 
-        let wallet = retry(|| bitcoind.create_wallet("nomic-integration-test"), 10).unwrap();
+        let wallet = retry(|| bitcoind.create_wallet("oraibtc-integration-test"), 10).unwrap();
         let wallet_address = wallet.get_new_address(None, None).unwrap();
         let async_wallet_address =
             bitcoincore_rpc_async::bitcoin::Address::from_str(&wallet_address.to_string()).unwrap();
@@ -2692,7 +2696,7 @@ async fn test_withdraw() {
                 move |app| build_call!(app.bitcoin.transfer_to_fee_pool(10000000000.into())),
             )
             .await?;
-        let expected_balance = 999973410000000;
+        let expected_balance = 999971751000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
@@ -2739,10 +2743,10 @@ async fn test_withdraw() {
 
         match wallet.get_balances() {
             Ok(data) => {
-                assert_eq!(simulate_withdrawal_fee, 3255000000);
+                assert_eq!(simulate_withdrawal_fee, 3580000000);
                 assert_eq!(
                     data.mine.untrusted_pending.to_sat() * 1000000,
-                    299996745000000
+                    299996420000000
                 );
             }
             Err(e) => {
@@ -2759,7 +2763,7 @@ async fn test_withdraw() {
         poll_for_bitcoin_header(1138).await.unwrap();
         poll_for_confirmed_checkpoint(1).await;
 
-        let expected_balance = 699958060000000;
+        let expected_balance = 699956401000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
@@ -2831,7 +2835,7 @@ async fn test_withdraw() {
         poll_for_bitcoin_header(1142).await.unwrap();
         poll_for_confirmed_checkpoint(3).await;
 
-        let expected_balance = 1399887209000000;
+        let expected_balance = 1399877088000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
@@ -2869,10 +2873,10 @@ async fn test_withdraw() {
 
         match wallet.get_balances() {
             Ok(data) => {
-                assert_eq!(simulate_withdrawal_fee, 1302000000);
+                assert_eq!(simulate_withdrawal_fee, 2604000000);
                 assert_eq!(
                     data.mine.untrusted_pending.to_sat() * 1000000,
-                    1299998698000000
+                    1299997396000000
                 );
             }
             Err(e) => {
@@ -2889,7 +2893,7 @@ async fn test_withdraw() {
         poll_for_bitcoin_header(1145).await.unwrap();
         poll_for_confirmed_checkpoint(4).await;
 
-        let expected_balance = 99797209000000;
+        let expected_balance = 99787088000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
@@ -2982,7 +2986,8 @@ async fn test_minimum_deposit_fees() {
     );
 
     info!("Starting Nomic node...");
-    let node = Node::<nomic::app::App>::new(node_path, Some("nomic-e2e"), Default::default()).await;
+    let node =
+        Node::<oraibtc::app::App>::new(node_path, Some("oraibtc-e2e"), Default::default()).await;
     let node_child = node.run().await.unwrap();
 
     let rpc_addr = "http://localhost:26657".to_string();
@@ -3050,9 +3055,9 @@ async fn test_minimum_deposit_fees() {
 
     let test = async {
         let val_priv_key = load_privkey().unwrap();
-        let nomic_wallet = DerivedKey::from_secret_key(val_priv_key);
+        let oraibtc_wallet = DerivedKey::from_secret_key(val_priv_key);
         let consensus_key = load_consensus_key(&path)?;
-        declare_validator(consensus_key, nomic_wallet, 100_000)
+        declare_validator(consensus_key, oraibtc_wallet, 100_000)
             .await
             .unwrap();
         app_client()
@@ -3080,7 +3085,7 @@ async fn test_minimum_deposit_fees() {
             )
             .await?;
 
-        let wallet = retry(|| bitcoind.create_wallet("nomic-integration-test"), 10).unwrap();
+        let wallet = retry(|| bitcoind.create_wallet("oraibtc-integration-test"), 10).unwrap();
         let wallet_address = wallet.get_new_address(None, None).unwrap();
         let async_wallet_address =
             bitcoincore_rpc_async::bitcoin::Address::from_str(&wallet_address.to_string()).unwrap();
@@ -3103,7 +3108,7 @@ async fn test_minimum_deposit_fees() {
             .unwrap();
 
         // sigset len = 1 => deposit_fees = 158 (input vsize) * 50 (default fee rate) * 10000 (use fee factor config above) / 10000 * 10^6 (units per sat)
-        assert_eq!(deposit_fees, 16590000000);
+        assert_eq!(deposit_fees, 18249000000);
 
         deposit_bitcoin(
             &funded_accounts[0].address,
@@ -3143,7 +3148,7 @@ async fn test_minimum_deposit_fees() {
             .await
             .unwrap();
         // first checkpoint minimum deposit fees should stay the same
-        assert_eq!(first_checkpoint_deposit_fees, 16590000000);
+        assert_eq!(first_checkpoint_deposit_fees, 18249000000);
 
         // case 2:
         let second_checkpoint_deposit_fees = app_client()
@@ -3151,7 +3156,7 @@ async fn test_minimum_deposit_fees() {
             .await
             .unwrap();
         // in the 2nd checkpoint, the signatory length is 2 -> 237 * 50 * 10^6
-        assert_eq!(second_checkpoint_deposit_fees, 24885000000);
+        assert_eq!(second_checkpoint_deposit_fees, 27373000000);
 
         Err::<(), Error>(Error::Test("Test completed successfully".to_string()))
     };
@@ -3238,7 +3243,7 @@ async fn test_deposit_with_high_min_confirmations() {
         Some(bitcoin_config),
     );
 
-    let node = Node::<nomic::app::App>::new(node_path, Some("nomic-e2e"), Default::default());
+    let node = Node::<oraibtc::app::App>::new(node_path, Some("oraibtc-e2e"), Default::default());
     let _node_child = node.await.run().await.unwrap();
 
     let rpc_addr = "http://localhost:26657".to_string();
@@ -3319,9 +3324,9 @@ async fn test_deposit_with_high_min_confirmations() {
 
     let test = async {
         let val_priv_key = load_privkey().unwrap();
-        let nomic_wallet = DerivedKey::from_secret_key(val_priv_key);
+        let oraibtc_wallet = DerivedKey::from_secret_key(val_priv_key);
         let consensus_key = load_consensus_key(&path)?;
-        declare_validator(consensus_key, nomic_wallet, 100_000)
+        declare_validator(consensus_key, oraibtc_wallet, 100_000)
             .await
             .unwrap();
         app_client()
@@ -3345,7 +3350,7 @@ async fn test_deposit_with_high_min_confirmations() {
             )
             .await?;
 
-        let wallet = retry(|| bitcoind.create_wallet("nomic-integration-test"), 10).unwrap();
+        let wallet = retry(|| bitcoind.create_wallet("oraibtc-integration-test"), 10).unwrap();
         let wallet_address = wallet.get_new_address(None, None).unwrap();
         let async_wallet_address =
             bitcoincore_rpc_async::bitcoin::Address::from_str(&wallet_address.to_string()).unwrap();
@@ -3443,7 +3448,7 @@ async fn test_deposit_with_high_min_confirmations() {
         // what does this do?
         tx.send(Some(())).await.unwrap();
 
-        let expected_balance = 999984200000000;
+        let expected_balance = 999982620000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
@@ -3521,7 +3526,7 @@ async fn test_bitcoin_with_checkpoint_confirmation_relay() {
     };
     let funded_accounts = setup_test_app(&path, 4, Some(headers_config), None, None);
 
-    let node = Node::<nomic::app::App>::new(node_path, Some("nomic-e2e"), Default::default());
+    let node = Node::<oraibtc::app::App>::new(node_path, Some("oraibtc-e2e"), Default::default());
     let _node_child = node.await.run().await.unwrap();
 
     let rpc_addr = "http://localhost:26657".to_string();
@@ -3602,9 +3607,9 @@ async fn test_bitcoin_with_checkpoint_confirmation_relay() {
 
     let test = async {
         let val_priv_key = load_privkey().unwrap();
-        let nomic_wallet = DerivedKey::from_secret_key(val_priv_key);
+        let oraibtc_wallet = DerivedKey::from_secret_key(val_priv_key);
         let consensus_key = load_consensus_key(&path)?;
-        declare_validator(consensus_key, nomic_wallet, 100_000)
+        declare_validator(consensus_key, oraibtc_wallet, 100_000)
             .await
             .unwrap();
         app_client()
@@ -3628,7 +3633,7 @@ async fn test_bitcoin_with_checkpoint_confirmation_relay() {
             )
             .await?;
 
-        let wallet = retry(|| bitcoind.create_wallet("nomic-integration-test"), 10).unwrap();
+        let wallet = retry(|| bitcoind.create_wallet("oraibtc-integration-test"), 10).unwrap();
         let wallet_address = wallet.get_new_address(None, None).unwrap();
         let async_wallet_address =
             bitcoincore_rpc_async::bitcoin::Address::from_str(&wallet_address.to_string()).unwrap();
@@ -3724,9 +3729,24 @@ async fn test_bitcoin_with_checkpoint_confirmation_relay() {
         // what does this do?
         tx.send(Some(())).await.unwrap();
 
-        let expected_balance = 999984200000000;
+        let expected_balance = 999982620000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
+
+        deposit_bitcoin(
+            &funded_accounts[1].address,
+            bitcoin::Amount::from_btc(0.4).unwrap(),
+            &wallet,
+        )
+        .await
+        .unwrap();
+        app_client()
+            .with_wallet(funded_accounts[0].wallet.clone())
+            .call(
+                move |app| build_call!(app.accounts.take_as_funding((MIN_FEE).into())),
+                move |app| build_call!(app.bitcoin.transfer_to_fee_pool(1000000000.into())),
+            )
+            .await?;
 
         btc_client
             .generate_to_address(3, &async_wallet_address)
@@ -3767,7 +3787,7 @@ async fn test_bitcoin_with_checkpoint_confirmation_relay() {
         poll_for_bitcoin_header(1133).await.unwrap();
         poll_for_confirmed_checkpoint(1).await;
 
-        let expected_balance = 39976300000000;
+        let expected_balance = 79947860000000;
         let balance = poll_for_updated_balance(funded_accounts[1].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
 
@@ -3816,7 +3836,7 @@ async fn test_bitcoin_with_checkpoint_confirmation_relay() {
             .unwrap();
         assert!(signer_jailed);
 
-        let expected_balance = 999958200000000;
+        let expected_balance = 999955620000000;
         let balance = poll_for_updated_balance(funded_accounts[0].address, expected_balance).await;
         assert_eq!(balance, Amount::from(expected_balance));
         Err::<(), Error>(Error::Test("Test completed successfully".to_string()))

@@ -10,23 +10,23 @@ use bitcoin::util::bip32::ExtendedPubKey;
 use bitcoincore_rpc_async::RpcApi;
 use bitcoincore_rpc_async::{Auth, Client as BtcClient};
 use clap::Parser;
-use nomic::app::Dest;
-use nomic::app::IbcDest;
-use nomic::app::InnerApp;
-use nomic::app::Nom;
-use nomic::bitcoin::adapter::Adapter;
-use nomic::bitcoin::signatory::SignatorySet;
-use nomic::bitcoin::Config;
-use nomic::bitcoin::Nbtc;
-use nomic::bitcoin::{relayer::Relayer, signer::Signer};
-use nomic::constants::BTC_NATIVE_TOKEN_DENOM;
-use nomic::constants::DEFAULT_MAX_SCAN_CHECKPOINTS_CONFIRMATIONS;
-use nomic::constants::MAIN_NATIVE_TOKEN_DENOM;
-use nomic::error::Result;
-use nomic::utils::load_bitcoin_key;
-use nomic::utils::load_or_generate;
-use nomic::utils::wallet_path;
-use nomic::utils::write_orga_private_key_from_mnemonic;
+use oraibtc::app::Dest;
+use oraibtc::app::IbcDest;
+use oraibtc::app::InnerApp;
+use oraibtc::app::Nom;
+use oraibtc::bitcoin::adapter::Adapter;
+use oraibtc::bitcoin::signatory::SignatorySet;
+use oraibtc::bitcoin::Config;
+use oraibtc::bitcoin::Nbtc;
+use oraibtc::bitcoin::{relayer::Relayer, signer::Signer};
+use oraibtc::constants::BTC_NATIVE_TOKEN_DENOM;
+use oraibtc::constants::DEFAULT_MAX_SCAN_CHECKPOINTS_CONFIRMATIONS;
+use oraibtc::constants::MAIN_NATIVE_TOKEN_DENOM;
+use oraibtc::error::Result;
+use oraibtc::utils::load_bitcoin_key;
+use oraibtc::utils::load_or_generate;
+use oraibtc::utils::wallet_path;
+use oraibtc::utils::write_orga_private_key_from_mnemonic;
 use orga::abci::Node;
 use orga::client::wallet::{SimpleWallet, Wallet};
 use orga::coins::DelegationInfo;
@@ -71,14 +71,14 @@ fn my_address() -> Address {
 #[derive(Parser, Debug)]
 #[clap(
     version = env!("CARGO_PKG_VERSION"),
-    author = "The Nomic Developers <hello@nomic.io>"
+    author = "Oraichain Labs <hello@oraibtc.io>"
 )]
 pub struct Opts {
     #[clap(subcommand)]
     cmd: Command,
 
     #[clap(flatten)]
-    config: nomic::network::Config,
+    config: oraibtc::network::Config,
 }
 
 #[derive(Parser, Debug)]
@@ -118,18 +118,18 @@ pub enum Command {
 }
 
 impl Command {
-    fn run(&self, config: &nomic::network::Config) -> Result<()> {
+    fn run(&self, config: &oraibtc::network::Config) -> Result<()> {
         use Command::*;
         let rt = tokio::runtime::Runtime::new().unwrap();
 
         if let Start(_cmd) = self {
-            log::info!("nomic v{}", env!("CARGO_PKG_VERSION"));
+            log::info!("oraibtc v{}", env!("CARGO_PKG_VERSION"));
 
             if let Some(network) = config.network() {
                 log::info!("Configured for network {:?}", network);
             }
         } else {
-            log::debug!("nomic v{}", env!("CARGO_PKG_VERSION"));
+            log::debug!("oraibtc v{}", env!("CARGO_PKG_VERSION"));
 
             if let Some(network) = config.network() {
                 log::debug!("Configured for network {:?}", network);
@@ -186,7 +186,7 @@ impl Command {
 #[derive(Parser, Clone, Debug, Serialize, Deserialize)]
 pub struct StartCmd {
     #[clap(flatten)]
-    config: nomic::network::Config,
+    config: oraibtc::network::Config,
 
     #[clap(long)]
     pub tendermint_logs: bool,
@@ -262,7 +262,7 @@ impl StartCmd {
         if !has_node {
             log::info!("Initializing node at {}...", home.display());
 
-            let node = Node::<nomic::app::App>::new(&home, chain_id, Default::default()).await;
+            let node = Node::<oraibtc::app::App>::new(&home, chain_id, Default::default()).await;
 
             if let Some(source) = cmd.clone_store {
                 let mut source = PathBuf::from_str(&source).unwrap();
@@ -316,7 +316,7 @@ impl StartCmd {
             );
         }
 
-        let bin_path = home.join(format!("bin/nomic-{}", env!("CARGO_PKG_VERSION")));
+        let bin_path = home.join(format!("bin/oraibtc-{}", env!("CARGO_PKG_VERSION")));
         if !bin_path.exists() {
             log::debug!("Writing binary to {}", bin_path.display());
             let current_exe_bytes = std::fs::read(std::env::current_exe().unwrap()).unwrap();
@@ -327,7 +327,7 @@ impl StartCmd {
 
         log::info!("Starting node at {}...", home.display());
         let mut node: Node<_> =
-            Node::<nomic::app::App>::new(&home, chain_id, Default::default()).await;
+            Node::<oraibtc::app::App>::new(&home, chain_id, Default::default()).await;
 
         if cmd.unsafe_reset {
             node = node.reset().await;
@@ -399,7 +399,7 @@ impl StartCmd {
 }
 
 // TODO: move to config/nodehome?
-fn legacy_bin(config: &nomic::network::Config) -> Result<Option<PathBuf>> {
+fn legacy_bin(config: &oraibtc::network::Config) -> Result<Option<PathBuf>> {
     let home = match config.home() {
         Some(home) => home,
         None => {
@@ -480,11 +480,11 @@ fn legacy_bin(config: &nomic::network::Config) -> Result<Option<PathBuf>> {
                         .clone()
                         .into_string()
                         .unwrap()
-                        .starts_with("nomic-")
+                        .starts_with("oraibtc-")
                     {
                         continue;
                     }
-                    let bin_ver = bin_name.to_str().unwrap().trim_start_matches("nomic-");
+                    let bin_ver = bin_name.to_str().unwrap().trim_start_matches("oraibtc-");
                     let bin_ver = semver::Version::parse(bin_ver).unwrap();
                     if req.matches(&bin_ver) {
                         if let Some(lv) = &legacy_ver {
@@ -529,7 +529,7 @@ fn legacy_bin(config: &nomic::network::Config) -> Result<Option<PathBuf>> {
     Ok(None)
 }
 
-async fn relaunch_on_migrate(config: &nomic::network::Config) -> Result<()> {
+async fn relaunch_on_migrate(config: &oraibtc::network::Config) -> Result<()> {
     let mut initial_ver = None;
     loop {
         let version: Vec<_> = config
@@ -659,7 +659,7 @@ pub struct SendCmd {
     amount: u64,
 
     #[clap(flatten)]
-    config: nomic::network::Config,
+    config: oraibtc::network::Config,
 }
 
 impl SendCmd {
@@ -682,7 +682,7 @@ pub struct SendNbtcCmd {
     amount: u64,
 
     #[clap(flatten)]
-    config: nomic::network::Config,
+    config: oraibtc::network::Config,
 }
 
 impl SendNbtcCmd {
@@ -707,7 +707,7 @@ pub struct BalanceCmd {
     mnemonic_file: Option<String>,
 
     #[clap(flatten)]
-    config: nomic::network::Config,
+    config: oraibtc::network::Config,
 }
 
 impl BalanceCmd {
@@ -743,7 +743,7 @@ impl BalanceCmd {
 #[derive(Parser, Debug)]
 pub struct DelegationsCmd {
     #[clap(flatten)]
-    config: nomic::network::Config,
+    config: oraibtc::network::Config,
 }
 
 impl DelegationsCmd {
@@ -796,7 +796,7 @@ impl DelegationsCmd {
 #[derive(Parser, Debug)]
 pub struct UnbondingPeriodCmd {
     #[clap(flatten)]
-    config: nomic::network::Config,
+    config: oraibtc::network::Config,
 }
 
 impl UnbondingPeriodCmd {
@@ -815,7 +815,7 @@ impl UnbondingPeriodCmd {
 #[derive(Parser, Debug)]
 pub struct ValidatorsCmd {
     #[clap(flatten)]
-    config: nomic::network::Config,
+    config: oraibtc::network::Config,
 }
 
 impl ValidatorsCmd {
@@ -847,7 +847,7 @@ pub struct DelegateCmd {
     amount: u64,
 
     #[clap(flatten)]
-    config: nomic::network::Config,
+    config: oraibtc::network::Config,
 }
 
 impl DelegateCmd {
@@ -882,7 +882,7 @@ pub struct DeclareCmd {
     details: String,
 
     #[clap(flatten)]
-    config: nomic::network::Config,
+    config: oraibtc::network::Config,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -959,7 +959,7 @@ pub struct EditCmd {
     details: String,
 
     #[clap(flatten)]
-    config: nomic::network::Config,
+    config: oraibtc::network::Config,
 }
 
 impl EditCmd {
@@ -998,7 +998,7 @@ pub struct UnbondCmd {
     amount: u64,
 
     #[clap(flatten)]
-    config: nomic::network::Config,
+    config: oraibtc::network::Config,
 }
 
 impl UnbondCmd {
@@ -1026,7 +1026,7 @@ pub struct RedelegateCmd {
     amount: u64,
 
     #[clap(flatten)]
-    config: nomic::network::Config,
+    config: oraibtc::network::Config,
 }
 
 impl RedelegateCmd {
@@ -1052,7 +1052,7 @@ impl RedelegateCmd {
 #[derive(Parser, Debug)]
 pub struct UnjailCmd {
     #[clap(flatten)]
-    config: nomic::network::Config,
+    config: oraibtc::network::Config,
 }
 
 impl UnjailCmd {
@@ -1072,7 +1072,7 @@ impl UnjailCmd {
 #[derive(Parser, Debug)]
 pub struct ClaimCmd {
     #[clap(flatten)]
-    config: nomic::network::Config,
+    config: oraibtc::network::Config,
 }
 
 impl ClaimCmd {
@@ -1107,7 +1107,7 @@ pub struct RelayerCmd {
     max_scan_checkpoint_confs: usize,
 
     #[clap(flatten)]
-    config: nomic::network::Config,
+    config: oraibtc::network::Config,
 }
 
 impl RelayerCmd {
@@ -1179,7 +1179,7 @@ impl RelayerCmd {
 #[derive(Parser, Debug)]
 pub struct SignerCmd {
     #[clap(flatten)]
-    config: nomic::network::Config,
+    config: oraibtc::network::Config,
 
     #[clap(long)]
     reset_limits_at_index: Option<u32>,
@@ -1229,7 +1229,7 @@ impl SignerCmd {
             self.min_blocks_per_checkpoint,
             self.reset_limits_at_index,
             // TODO: check for custom RPC port, allow config, etc
-            || nomic::app_client("http://localhost:26657").with_wallet(wallet()),
+            || oraibtc::app_client("http://localhost:26657").with_wallet(wallet()),
             self.prometheus_addr,
         )?
         .start();
@@ -1247,7 +1247,7 @@ pub struct SetSignatoryKeyCmd {
     xpriv_path: Option<PathBuf>,
 
     #[clap(flatten)]
-    config: nomic::network::Config,
+    config: oraibtc::network::Config,
 }
 
 impl SetSignatoryKeyCmd {
@@ -1256,7 +1256,7 @@ impl SetSignatoryKeyCmd {
             Some(xpriv_path) => load_bitcoin_key(xpriv_path)?,
             None => load_or_generate(
                 self.config.home_expect().unwrap().join("signer/xpriv"),
-                nomic::bitcoin::NETWORK,
+                oraibtc::bitcoin::NETWORK,
             )?,
         };
 
@@ -1281,7 +1281,7 @@ async fn deposit(
     relayers: Vec<String>,
 ) -> Result<()> {
     if relayers.is_empty() {
-        return Err(nomic::error::Error::Orga(orga::Error::App(
+        return Err(oraibtc::error::Error::Orga(orga::Error::App(
             "No relayers configured, please specify at least one with --btc-relayer".to_string(),
         )));
     }
@@ -1295,7 +1295,7 @@ async fn deposit(
         })
         .await?;
     let script = sigset.output_script(dest.commitment_bytes()?.as_slice(), threshold)?;
-    let btc_addr = bitcoin::Address::from_script(&script, nomic::bitcoin::NETWORK).unwrap();
+    let btc_addr = bitcoin::Address::from_script(&script, oraibtc::bitcoin::NETWORK).unwrap();
 
     let mut successes = 0;
     let required_successes = relayers.len() * 2 / 3 + 1;
@@ -1310,7 +1310,7 @@ async fn deposit(
             .body(dest.encode()?)
             .send()
             .await
-            .map_err(|err| nomic::error::Error::Orga(orga::Error::App(err.to_string())))?;
+            .map_err(|err| oraibtc::error::Error::Orga(orga::Error::App(err.to_string())))?;
         log::debug!("Relayer response status code: {}", res.status());
         if res.status() == 200 {
             successes += 1;
@@ -1318,7 +1318,7 @@ async fn deposit(
     }
 
     if successes < required_successes {
-        return Err(nomic::error::Error::Orga(orga::Error::App(
+        return Err(oraibtc::error::Error::Orga(orga::Error::App(
             "Failed to broadcast deposit address to relayers".to_string(),
         )));
     }
@@ -1334,7 +1334,7 @@ pub struct DepositCmd {
     address: Option<Address>,
 
     #[clap(flatten)]
-    config: nomic::network::Config,
+    config: oraibtc::network::Config,
 }
 
 impl DepositCmd {
@@ -1357,7 +1357,7 @@ pub struct InterchainDepositCmd {
     memo: String,
 
     #[clap(flatten)]
-    config: nomic::network::Config,
+    config: oraibtc::network::Config,
 }
 
 const ONE_DAY_NS: u64 = 86400 * 1_000_000_000;
@@ -1370,7 +1370,7 @@ impl InterchainDepositCmd {
             .unwrap()
             .as_secs()
             * 1_000_000_000;
-        let dest = Dest::Ibc(nomic::app::IbcDest {
+        let dest = Dest::Ibc(oraibtc::app::IbcDest {
             source_port: "transfer".try_into().unwrap(),
             source_channel: self.channel.clone().try_into().unwrap(),
             sender: Adapter(my_address().to_string().into()),
@@ -1389,7 +1389,7 @@ pub struct WithdrawCmd {
     amount: u64,
 
     #[clap(flatten)]
-    config: nomic::network::Config,
+    config: oraibtc::network::Config,
 }
 
 impl WithdrawCmd {
@@ -1415,7 +1415,7 @@ impl WithdrawCmd {
 //     amount: u64,
 
 //     #[clap(flatten)]
-//     config: nomic::network::Config,
+//     config: oraibtc::network::Config,
 // }
 
 // impl IbcTransferNbtcCmd {
@@ -1437,7 +1437,7 @@ pub struct IbcWithdrawNbtcCmd {
     amount: u64,
 
     #[clap(flatten)]
-    config: nomic::network::Config,
+    config: oraibtc::network::Config,
 }
 
 impl IbcWithdrawNbtcCmd {
@@ -1463,7 +1463,7 @@ pub struct GrpcCmd {
     grpc_host: Option<String>,
 
     #[clap(flatten)]
-    config: nomic::network::Config,
+    config: oraibtc::network::Config,
 }
 
 impl GrpcCmd {
@@ -1472,7 +1472,7 @@ impl GrpcCmd {
         std::panic::set_hook(Box::new(|_| {}));
         orga::ibc::start_grpc(
             // TODO: support configuring RPC address
-            || nomic::app_client("http://localhost:26657").sub(|app| app.ibc.ctx),
+            || oraibtc::app_client("http://localhost:26657").sub(|app| app.ibc.ctx),
             &GrpcOpts {
                 host: self.grpc_host.to_owned().unwrap_or("127.0.0.1".to_string()),
                 port: self.port,
@@ -1494,7 +1494,7 @@ pub struct IbcTransferCmd {
     memo: String,
     timeout_seconds: u64,
     #[clap(flatten)]
-    config: nomic::network::Config,
+    config: oraibtc::network::Config,
 }
 
 impl IbcTransferCmd {
@@ -1530,7 +1530,7 @@ impl IbcTransferCmd {
 #[derive(Parser, Debug)]
 pub struct ExportCmd {
     #[clap(flatten)]
-    config: nomic::network::Config,
+    config: oraibtc::network::Config,
 }
 
 impl ExportCmd {
@@ -1543,8 +1543,10 @@ impl ExportCmd {
         )));
         let root_bytes = store.get(&[])?.unwrap();
 
-        let app =
-            orga::plugins::ABCIPlugin::<nomic::app::App>::load(store, &mut root_bytes.as_slice())?;
+        let app = orga::plugins::ABCIPlugin::<oraibtc::app::App>::load(
+            store,
+            &mut root_bytes.as_slice(),
+        )?;
 
         serde_json::to_writer_pretty(std::io::stdout(), &app).unwrap();
 
@@ -1555,7 +1557,7 @@ impl ExportCmd {
 #[derive(Parser, Debug)]
 pub struct UpgradeStatusCmd {
     #[clap(flatten)]
-    config: nomic::network::Config,
+    config: oraibtc::network::Config,
 }
 
 impl UpgradeStatusCmd {
@@ -1718,7 +1720,7 @@ impl UpgradeStatusCmd {
                 .with_second(0)
                 .unwrap();
 
-            while !nomic::app::in_upgrade_window(activation_date.timestamp()) {
+            while !oraibtc::app::in_upgrade_window(activation_date.timestamp()) {
                 activation_date = activation_date
                     .checked_add_days(chrono::Days::new(1))
                     .unwrap();
@@ -1740,12 +1742,12 @@ pub struct RelayOpKeysCmd {
 
 impl RelayOpKeysCmd {
     async fn run(&self) -> Result<()> {
-        use nomic::cosmos::relay_op_keys;
+        use oraibtc::cosmos::relay_op_keys;
         log::info!("Relaying operator keys for client {}", self.client_id);
         let bytes = format!("{}/", self.client_id).as_bytes().to_vec();
         let client_id = Decode::decode(&mut bytes.as_slice())?;
         relay_op_keys(
-            || nomic::app_client("http://localhost:26657").with_wallet(wallet()),
+            || oraibtc::app_client("http://localhost:26657").with_wallet(wallet()),
             client_id,
             self.rpc_url.as_str(),
         )
@@ -1762,7 +1764,7 @@ pub struct SetRecoveryAddressCmd {
     address: bitcoin::Address,
 
     #[clap(flatten)]
-    config: nomic::network::Config,
+    config: oraibtc::network::Config,
 }
 
 impl SetRecoveryAddressCmd {
@@ -1775,9 +1777,9 @@ impl SetRecoveryAddressCmd {
             .call(
                 |app| build_call!(app.app_noop()),
                 |app| {
-                    build_call!(app
-                        .bitcoin
-                        .set_recovery_script(nomic::bitcoin::adapter::Adapter::new(script.clone())))
+                    build_call!(app.bitcoin.set_recovery_script(
+                        oraibtc::bitcoin::adapter::Adapter::new(script.clone())
+                    ))
                 },
             )
             .await?)
@@ -1787,7 +1789,7 @@ impl SetRecoveryAddressCmd {
 #[derive(Parser, Debug)]
 pub struct SigningStatusCmd {
     #[clap(flatten)]
-    config: nomic::network::Config,
+    config: oraibtc::network::Config,
 }
 
 impl SigningStatusCmd {
@@ -1801,8 +1803,10 @@ impl SigningStatusCmd {
         )));
         let root_bytes = store.get(&[])?.unwrap();
 
-        let app =
-            orga::plugins::ABCIPlugin::<nomic::app::App>::load(store, &mut root_bytes.as_slice())?;
+        let app = orga::plugins::ABCIPlugin::<oraibtc::app::App>::load(
+            store,
+            &mut root_bytes.as_slice(),
+        )?;
 
         let app = app
             .inner
@@ -1841,7 +1845,7 @@ impl SigningStatusCmd {
         let secp = bitcoin::secp256k1::Secp256k1::verification_only();
         let mut missing_cons_keys = vec![];
         for entry in sig_keys.map().iter()? {
-            use nomic::bitcoin::threshold_sig::Pubkey;
+            use oraibtc::bitcoin::threshold_sig::Pubkey;
             let (k, xpub) = entry?;
 
             let derive_path = [ChildNumber::from_normal_idx(sigset_index)?];
@@ -1878,7 +1882,7 @@ impl SigningStatusCmd {
 #[derive(Parser, Debug)]
 pub struct BitcoinConfigCmd {
     #[clap(flatten)]
-    config: nomic::network::Config,
+    config: oraibtc::network::Config,
 }
 
 #[derive(Parser, Debug)]
@@ -1898,7 +1902,7 @@ pub struct RecoverDepositCmd {
     remote_prefix: Option<String>,
 
     #[clap(long)]
-    nomic_addr: Address,
+    oraibtc_addr: Address,
     #[clap(long)]
     deposit_addr: bitcoin::Address,
     #[clap(long)]
@@ -1912,7 +1916,7 @@ pub struct RecoverDepositCmd {
     reserve_script_path: PathBuf,
 
     #[clap(flatten)]
-    config: nomic::network::Config,
+    config: oraibtc::network::Config,
 }
 
 impl BitcoinConfigCmd {
@@ -1942,7 +1946,7 @@ impl RecoverDepositCmd {
     }
 
     async fn relay_deposit(&self, dest: Dest, sigset_index: u32) -> Result<()> {
-        let nomic_client = self.config.client();
+        let oraibtc_client = self.config.client();
         let btc_client = self.btc_client().await?;
 
         let block_height = btc_client.get_block_info(&self.block_hash).await?.height as u32;
@@ -1963,7 +1967,7 @@ impl RecoverDepositCmd {
             let proof = Adapter::new(proof);
 
             let dest2 = dest.clone();
-            nomic_client
+            oraibtc_client
                 .call(
                     move |app| {
                         build_call!(app.relay_deposit(
@@ -1992,13 +1996,13 @@ impl RecoverDepositCmd {
     async fn run(&self) -> Result<()> {
         let mut remote_addr = self.remote_addr.clone();
         if let Some(remote_prefix) = &self.remote_prefix {
-            let data = bech32::decode(&self.nomic_addr.to_string()).unwrap().1;
+            let data = bech32::decode(&self.oraibtc_addr.to_string()).unwrap().1;
             remote_addr =
                 Some(bech32::encode(remote_prefix, data, bech32::Variant::Bech32).unwrap());
         }
 
         if self.channel.is_some() != remote_addr.is_some() {
-            return Err(nomic::error::Error::Orga(orga::Error::App(
+            return Err(oraibtc::error::Error::Orga(orga::Error::App(
                 "Both --channel and --remote-prefix or --remote-addr must be specified".to_string(),
             )));
         }
@@ -2036,7 +2040,7 @@ impl RecoverDepositCmd {
                 source_port: "transfer".to_string().try_into().unwrap(),
                 source_channel: channel.bytes().collect::<Vec<_>>().try_into().unwrap(),
                 receiver: orga::encoding::Adapter(remote_addr.to_string().into()),
-                sender: orga::encoding::Adapter(self.nomic_addr.to_string().into()),
+                sender: orga::encoding::Adapter(self.oraibtc_addr.to_string().into()),
                 timeout_timestamp: start,
                 memo: "".to_string().try_into().unwrap(),
             });
@@ -2057,7 +2061,7 @@ impl RecoverDepositCmd {
 
                     let script = sigset.output_script(&dest_bytes, threshold).unwrap();
                     let addr =
-                        bitcoin::Address::from_script(&script, nomic::bitcoin::NETWORK).unwrap();
+                        bitcoin::Address::from_script(&script, oraibtc::bitcoin::NETWORK).unwrap();
                     if addr.to_string().to_lowercase()
                         == self.deposit_addr.to_string().to_lowercase()
                     {
@@ -2085,19 +2089,19 @@ impl RecoverDepositCmd {
             }
         }
 
-        let dest = Dest::Address(self.nomic_addr);
+        let dest = Dest::Address(self.oraibtc_addr);
         let dest_bytes = dest.commitment_bytes().unwrap();
 
         for (sigset_index, sigset) in sigsets.iter() {
             let script = sigset.output_script(&dest_bytes, threshold).unwrap();
-            let addr = bitcoin::Address::from_script(&script, nomic::bitcoin::NETWORK).unwrap();
+            let addr = bitcoin::Address::from_script(&script, oraibtc::bitcoin::NETWORK).unwrap();
             if addr.to_string().to_lowercase() == self.deposit_addr.to_string().to_lowercase() {
                 println!("Found at sigset index {}", sigset_index,);
                 return self.relay_deposit(dest, *sigset_index).await;
             }
         }
 
-        Err(nomic::error::Error::Orga(orga::Error::App(
+        Err(oraibtc::error::Error::Orga(orga::Error::App(
             "Deposit address not found in any sigset".to_string(),
         )))
     }
@@ -2108,7 +2112,7 @@ pub struct PayToFeePoolCmd {
     amount: u64,
 
     #[clap(flatten)]
-    config: nomic::network::Config,
+    config: oraibtc::network::Config,
 }
 
 impl PayToFeePoolCmd {
