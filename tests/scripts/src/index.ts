@@ -1,15 +1,13 @@
 import { deriveAddressByPrefix, getMnemonic } from "./helper";
 import { connect } from "./connect";
 import { OraiBtcLocalConfig } from "./network";
-import { coin, StdFee } from "@cosmjs/amino";
-// import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx";
-import { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx";
 import { getAccountInfo } from "./helper";
-import { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
+import { Worker } from "worker_threads";
+import { coin, DirectSecp256k1HdWallet } from "@cosmjs/proto-signing";
 import { setTimeout } from "timers/promises";
-import { DirectSecp256k1HdWallet } from "@cosmjs/proto-signing";
-
-const toAddressConstant = "oraibtc1ehmhqcn8erf3dgavrca69zgp4rtxj5kqzpga4j";
+import { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
+import { StdFee } from "@cosmjs/stargate";
+import { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx";
 
 const handleMsgSend = async ({
   client,
@@ -21,7 +19,7 @@ const handleMsgSend = async ({
   clientAddress: string;
   sequence: number;
   toAddress: string;
-}) => {
+}): Promise<any> => {
   try {
     const sendMsg1 = {
       typeUrl: "/cosmos.bank.v1beta1.MsgSend",
@@ -54,50 +52,22 @@ const handleMsgSend = async ({
     const txBytes = TxRaw.encode(txRaw).finish();
     const txData = await client.broadcastTx(txBytes);
     return txData;
-  } catch (err) {
-    // console.log(err);
+  } catch (err: any) {
     await setTimeout(100);
-    await handleMsgSend({ client, clientAddress, sequence, toAddress });
+    return await handleMsgSend({ client, clientAddress, sequence, toAddress });
   }
 };
 
-const handleExecutePerAccount = async (
-  mnemonic: string,
-  numberOfTxs: number
-) => {
-  const { client, address } = await connect(mnemonic, OraiBtcLocalConfig, true);
-  const derivedAddress = deriveAddressByPrefix(
-    address,
-    OraiBtcLocalConfig.prefix
-  );
-
-  //   console.log(derivedAddress);
-
-  //   const accountInfo = await getAccountInfo(derivedAddress);
-  //   const sequence = parseInt(accountInfo.result.value.sequence);
-
-  //   console.log("Sequence: ", sequence);
-
-  // because it is new generated accounts so we don't need to fetch sequence
-  const bulkTxs = new Array(numberOfTxs).fill(0).map((_, index) => {
-    return handleMsgSend({
-      client,
-      clientAddress: derivedAddress,
-      sequence: 0 + index,
-      toAddress: toAddressConstant,
-    });
-  });
-
-  //   console.log("Starting broadcasting transaction...");
-
-  const data = await Promise.all(bulkTxs);
-
-  //   console.log("Data", data);
-};
+let mappedAddress = {} as { [key: string]: number };
 
 const genNewAccount = async (): Promise<[string, string]> => {
   try {
     const mnemonic = (await DirectSecp256k1HdWallet.generate()).mnemonic;
+    if (mappedAddress[`${mnemonic}`] !== undefined) {
+      throw Error("Generate again");
+    }
+    console.log(mnemonic);
+    mappedAddress[`${mnemonic}`] = 1;
     const { address } = await connect(mnemonic, OraiBtcLocalConfig, true);
     const derivedAddress = deriveAddressByPrefix(
       address,
@@ -105,36 +75,58 @@ const genNewAccount = async (): Promise<[string, string]> => {
     );
     return [derivedAddress, mnemonic];
   } catch (err) {
+    console.log("Gen again");
+    await setTimeout(100);
     return await genNewAccount();
   }
+};
+
+const runService = (workerData: { mnemonic: string; numOfTxs: number }) => {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker("./dist/worker.js", {
+      workerData,
+    });
+
+    worker.on("message", (message) => {
+      console.log("Finish one of workers", message);
+      resolve(message);
+    });
+    worker.on("error", reject);
+    worker.on("exit", (code) => {
+      if (code !== 0) {
+        reject(new Error(`Worker stopped with exit code ${code}`));
+      }
+    });
+  });
 };
 
 async function main(): Promise<void> {
   // get the mnemonic
   const mnemonic = getMnemonic();
   const args = process.argv.slice(2);
-  if (!args[0]) throw Error("Please input number of accounts");
-  if (!args[1]) throw Error("Please input number of txs per account");
-  console.log(
-    `Benchmarking with ${args[0]} accounts and ${args[1]} txs per each`
-  );
-  const numberOfAccount = parseInt(args[0]);
-  const numberOfTxsPerAccount = parseInt(args[1]);
-
-  const addressesFunc = new Array(numberOfAccount).fill(0).map((_, index) => {
-    return genNewAccount();
-  });
-  const addresses = await Promise.all(addressesFunc);
-
-  const { client, address } = await connect(mnemonic, OraiBtcLocalConfig, true);
+  if (!args[0]) throw Error("Please input number of threads");
+  if (!args[1]) throw Error("Please input number of txs per thread");
+  const numberOfThread = parseInt(args[0]);
+  const numberOfTxs = parseInt(args[1]);
+  if (numberOfThread > 30) {
+    throw Error("Threads is too large, may lead to overloaded");
+  }
+  const { address, client } = await connect(mnemonic, OraiBtcLocalConfig, true);
   const derivedAddress = deriveAddressByPrefix(
     address,
     OraiBtcLocalConfig.prefix
   );
+
   const accountInfo = await getAccountInfo(derivedAddress);
   const sequence = parseInt(accountInfo.result.value.sequence);
-
-  const initTxs = new Array(numberOfAccount).fill(0).map((_, index) => {
+  console.log("Init sequence", sequence);
+  const array = new Array(numberOfThread).fill(0);
+  const addressesFunc = array.map((_, index) => {
+    return genNewAccount();
+  });
+  const addresses = await Promise.all(addressesFunc);
+  const initTxs = array.map((_, index) => {
+    console.log("Process:", index);
     return handleMsgSend({
       client,
       clientAddress: derivedAddress,
@@ -144,21 +136,28 @@ async function main(): Promise<void> {
   });
   await Promise.all(initTxs);
 
-  await setTimeout(5000);
-  console.log("Starting broadcasting transaction after 5 seconds...");
-  //   console.time("Start timing...");
+  console.log("Start handling multi-thread");
   const startTime = new Date().getTime();
-  const executeTxs = new Array(numberOfAccount).fill(0).map((_, index) => {
-    return handleExecutePerAccount(
-      addresses.map((item) => item[1])[index],
-      numberOfTxsPerAccount
-    );
-  });
-  await Promise.all(executeTxs);
-  const endTime = new Date().getTime();
-  console.log("Total took:", (endTime - startTime) / 1000);
+  const result = await Promise.all(
+    array.map((x, index) =>
+      runService({
+        mnemonic: addresses[index][1],
+        numOfTxs: numberOfTxs,
+      })
+    )
+  );
 
-  console.timeEnd("End timing...");
+  const endTime = new Date().getTime();
+
+  console.log("Total taked: ", (endTime - startTime) / 1000);
+  console.log(
+    "Total executed txs: ",
+    result
+      .map((item: any) => item.result)
+      .reduce((accumulator: any, currentValue: any) => {
+        return accumulator + currentValue;
+      }, 0)
+  ); // Giá trị ban đầu của accumulator là 0
 }
 
 main().then(

@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "fix": "eslint --fix \"./src/**/*.ts\" \"./scripts/*/*.ts\"",
-    "lint": "eslint --max-warnings 0 \"./src/**/*.ts\" \"./scripts/**/*.ts\""
+    "lint": "eslint --max-warnings 0 \"./src/**/*.ts\" \"./scripts/**/*.ts\"",
+    "build": "tsc"
   },
   "dependencies": {
     "@cosmjs/amino": "0.32.1",
