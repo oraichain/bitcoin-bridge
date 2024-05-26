@@ -1,11 +1,20 @@
 pub const MAIN_NATIVE_TOKEN_DENOM: &str = "uoraibtc";
 pub const BTC_NATIVE_TOKEN_DENOM: &str = "usat";
-pub const MIN_FEE_RATE: u64 = 40; // in satoshis per vbytes
+
+#[cfg(not(feature = "devnet"))]
+pub const MIN_FEE_RATE: u64 = 100; // in satoshis per vbytes
+#[cfg(feature = "devnet")]
+pub const MIN_FEE_RATE: u64 = 40; // ~ 100 sat/vb
+
 pub const MAX_FEE_RATE: u64 = 1000; // in satoshis per vbytes
 pub const USER_FEE_FACTOR: u64 = 27000; // 2.7x. Calculate by USER_FEE_FACTOR / 10000
 pub const IBC_FEE: u64 = 0;
 /// The default fee rate to be used to pay miner fees, in satoshis per virtual byte.
+#[cfg(not(feature = "devnet"))]
+pub const DEFAULT_FEE_RATE: u64 = 110; // ~ 110 sat/vb
+#[cfg(feature = "devnet")]
 pub const DEFAULT_FEE_RATE: u64 = 55; // ~ 100 sat/vb
+
 pub const BRIDGE_FEE_RATE: f64 = 0.0;
 pub const TRANSFER_FEE: u64 = 0;
 

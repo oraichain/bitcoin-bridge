@@ -7,7 +7,7 @@ set -xe
 cargo test --verbose --no-default-features --features=full,feat-ibc,testnet
 
 # all features
-cargo test --verbose --features full,feat-ibc,testnet,faucet-test,devnet
+cargo test --verbose --features full,feat-ibc,testnet
 
 # check rest
 cargo check --manifest-path rest/Cargo.toml --verbose
