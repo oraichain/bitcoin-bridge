@@ -1659,7 +1659,6 @@ async fn ibc_consensus_state_by_revision_number_and_revision_height(
         })
         .await
         .unwrap();
-    println!("Consensus state: {:?}", consensus_states);
     let found_consensus_state = consensus_states
         .iter()
         .find(|state| {
@@ -1667,7 +1666,6 @@ async fn ibc_consensus_state_by_revision_number_and_revision_height(
             height.revision_number == revision_number && height.revision_height == revision_height
         })
         .unwrap();
-    println!("Found consensus state: {:?}", found_consensus_state);
 
     let state_as_any: Any = found_consensus_state.consensus_state.clone().unwrap();
     let consensus_state_tmp: TmConsensusState =
