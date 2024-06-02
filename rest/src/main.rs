@@ -1661,6 +1661,7 @@ async fn ibc_consensus_state_by_revision_number_and_revision_height(
         .unwrap();
     let found_consensus_state = consensus_states
         .iter()
+        .rev()
         .find(|state| {
             let height = state.height.as_ref().unwrap();
             height.revision_number == revision_number && height.revision_height == revision_height
