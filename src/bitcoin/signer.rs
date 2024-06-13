@@ -245,7 +245,7 @@ where
     ) -> Result<()> {
         const CHECKPOINT_WINDOW: u32 = 20;
         let mut index = (self.app_client)()
-            .query(|app| {
+            .query(|app: InnerApp| {
                 let index = app.bitcoin.checkpoints.index();
                 if index == 0 {
                     return Ok(0);

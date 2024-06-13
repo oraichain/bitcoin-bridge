@@ -2,7 +2,7 @@
 <img src="./logo.svg" width="40%">
 </h1>
 
-Nomic Bitcoin Bridge
+OraiBTC Bitcoin Bridge
 
 ## Testnet Interchain Upgrade
 
@@ -31,7 +31,7 @@ cargo install --locked --path .
 
 2. Shut down your running node.
 
-3. Restart your node with `nomic start`.
+3. Restart your node with `oraibtc start`.
 
 Your node will automatically perform the upgrade on Friday, October 7 at 17:00 UTC.
 
@@ -43,7 +43,7 @@ cargo test --all
 
 ## Node setup guide
 
-This guide will walk you through setting up a node for the Nomic testnet.
+This guide will walk you through setting up a node for the OraiBTC testnet.
 
 If you need any help getting your node running, join the [Discord](https://discord.gg/jH7U2NRJKn) and ask for the Validator role.
 
@@ -53,16 +53,16 @@ If you need any help getting your node running, join the [Discord](https://disco
 - &gt;= 100GB of storage
 - Linux or macOS _(Windows support coming soon)_
 
-### 1. Build Nomic
+### 1. Build OraiBTC
 
-Start by building Nomic - for now this requires Rust nightly.
+Start by building OraiBTC - for now this requires Rust nightly.
 Install rustup if you haven't already:
 
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
-Install nightly as well (nomic currently requires rust nightly):
+Install nightly as well (oraibtc currently requires rust nightly):
 
 ```bash
 rustup default nightly
@@ -93,7 +93,7 @@ git clone https://github.com/oraichain/bitcoin-bridge.git && cd bitcoin-bridge
 git checkout {latest_release}
 ```
 
-Build and install, adding a `nomic` command to your PATH:
+Build and install, adding a `oraibtc` command to your PATH:
 
 ```bash
 cargo install --locked --path .
@@ -101,32 +101,32 @@ cargo install --locked --path .
 
 ### 2. Run your node
 
-Start your Nomic node:
+Start your OraiBTC node:
 
 ```bash
 # the FUNDED_ADDRESS will have lots of test NOM & NBTC to test
 # your-wanted-chain-id is the chain id you want your local network to be. If it does not exist => auto create new, else reuse the existing one
 
 # the env variables will only apply to the first node of the network when the chain initializes => the below command is only for the first node.
-FUNDED_ADDRESS=<your-nomic-address-for-funding> FUNDED_NOMIC_AMOUNT=<your-oraibtc-for-funding> FUNDED_USAT_AMOUNT=<your-usat-for-funding> FUNDED_NOMIC_AMOUNT=<amount> FUNDED_USAT_AMOUNT=<amount> nomic start --chain-id <your-wanted-chain-id>
+FUNDED_ADDRESS=<your-oraibtc-address-for-funding> FUNDED_NOMIC_AMOUNT=<your-oraibtc-for-funding> FUNDED_USAT_AMOUNT=<your-usat-for-funding> FUNDED_NOMIC_AMOUNT=<amount> FUNDED_USAT_AMOUNT=<amount> oraibtc start --chain-id <your-wanted-chain-id>
 
 # Run the below command to join the network as a full node
-nomic start \
+oraibtc start \
   --genesis /root/.oraibtc-mainnet-1/tendermint/config/genesis.json \
   --state-sync-rpc http://<other-node-ip>:26657 \
   --tendermint-logs \
   -- --p2p.seeds <other-node-id>@<other-node-ip>:26656
 
 # eg:
-FUNDED_ADDRESS=oraibtc1ehmhqcn8erf3dgavrca69zgp4rtxj5kqzpga4j FUNDED_NOMIC_AMOUNT=1000000000000 FUNDED_USAT_AMOUNT=0 nomic start --chain-id oraibtc-subnet-1
+FUNDED_ADDRESS=oraibtc1ehmhqcn8erf3dgavrca69zgp4rtxj5kqzpga4j FUNDED_NOMIC_AMOUNT=1000000000000 FUNDED_USAT_AMOUNT=0 oraibtc start --chain-id oraibtc-subnet-1
 ```
 
-This will run the Nomic state machine and a Tendermint process. For new nodes the statesync process will run automatically to get the node up to speed with the current chain.
+This will run the OraiBTC state machine and a Tendermint process. For new nodes the statesync process will run automatically to get the node up to speed with the current chain.
 
 Start your GRPC:
 
 ```bash
-nomic grpc --chain-id <your-chain-id> -g 0.0.0.0 -- 9001
+oraibtc grpc --chain-id <your-chain-id> -g 0.0.0.0 -- 9001
 ```
 
 This will start and expose your local grpc to the world through port 9090. You can choose a different port if you prefer
@@ -139,16 +139,16 @@ Start Hermes IBC relayer (assuming the config.toml file is located at /root/.her
 
 ### 3. Acquiring coins and staking for voting power
 
-First, find your address by running `nomic balance` (for now this must be run on
+First, find your address by running `oraibtc balance` (for now this must be run on
 the same machine as your active full node).
 
-Ask the Nomic team for some coins in the Discord and include your address.
+Ask the OraiBTC team for some coins in the Discord and include your address.
 
 Once you have received coins, you can declare your node as a validator and
 delegate to yourself with:
 
 ```bash
-nomic declare \
+oraibtc declare \
   <validator_consensus_key> \
   <amount> \
   <commission_rate> \
@@ -173,27 +173,27 @@ declare a new validator instead.
 For example:
 
 ```bash
-nomic declare "1e1oIYAQkOcNP504VKFVtrqWx6bdaORShxC4s4st3Mo=" 100000 0.042 0.1 0.01 100000 "Foo's Validator" "https://foovalidator.com" 37AA68F6AA20B7A8 "Please delegate to me!" --chain-id oraibtc-testnet-2
+oraibtc declare "1e1oIYAQkOcNP504VKFVtrqWx6bdaORShxC4s4st3Mo=" 100000 0.042 0.1 0.01 100000 "Foo's Validator" "https://foovalidator.com" 37AA68F6AA20B7A8 "Please delegate to me!" --chain-id oraibtc-testnet-2
 ```
 
 ### 4. Run your Bitcoin signer
 
-The funds in the Bitcoin bridge are held in a large multisig controlled by the Nomic validators. If you are a validator with a significant amount of voting power, it is very important that you run a signer.
+The funds in the Bitcoin bridge are held in a large multisig controlled by the OraiBTC validators. If you are a validator with a significant amount of voting power, it is very important that you run a signer.
 
 #### i. Set your signatory key
 
-This will submit your public key to the network so you can be added to the multisig. If you do not have a key stored at `~/.nomic-testnet-4c/signer/xpriv`, this will automatically generate a Bitcoin extended private key for you. **KEEP THIS KEY SAFE** - similar to your validator private key, it is important to be mindful of this key so that it is never lost or stolen.
+This will submit your public key to the network so you can be added to the multisig. If you do not have a key stored at `~/.oraibtc-testnet-4c/signer/xpriv`, this will automatically generate a Bitcoin extended private key for you. **KEEP THIS KEY SAFE** - similar to your validator private key, it is important to be mindful of this key so that it is never lost or stolen.
 
 **Note:** Setting your signatory key is only required if you are starting a fresh node. Migrating nodes can move on to the next step.
 
 ```
-nomic set-signatory-key
+oraibtc set-signatory-key
 ```
 
 If you have your extended private key stored in a different location than the default, you may pass a path.
 
 ```
-nomic set-signatory-key <path-to-your-key>
+oraibtc set-signatory-key <path-to-your-key>
 ```
 
 #### ii. Run your Bitcoin signer
@@ -201,13 +201,13 @@ nomic set-signatory-key <path-to-your-key>
 You can run the signer with:
 
 ```
-nomic signer
+oraibtc signer
 ```
 
 If you have stored your xpriv in a different location, you can pass the path to the signer.
 
 ```
-nomic signer xpriv_paths=[<path_to_your_xpriv>]
+oraibtc signer xpriv_paths=[<path_to_your_xpriv>]
 ```
 
 Leave this process running, it will automatically sign Bitcoin transactions that the network wants to create.
@@ -216,7 +216,7 @@ In the future, we hope for the community to come up with alternative types of si
 
 ### 5. (Optional) Run a relayer
 
-Relayer nodes carry data between the Bitcoin blockchain and the Nomic blockchain. You can help support the health of the network by running a Bitcoin node alongside your Nomic node and running the relayer process.
+Relayer nodes carry data between the Bitcoin blockchain and the OraiBTC blockchain. You can help support the health of the network by running a Bitcoin node alongside your OraiBTC node and running the relayer process.
 
 #### i. Sync a Bitcoin node
 
@@ -242,19 +242,19 @@ bitcoind -rpcuser=satoshi -rpcpassword=nakamoto
 
 ```bash
 // testnet
-nomic relayer --rpc-port=18332 --rpc-user=satoshi --rpc-pass=nakamoto
+oraibtc relayer --rpc-port=18332 --rpc-user=satoshi --rpc-pass=nakamoto
 
 // mainnet
-nomic relayer --rpc-port=8332 --rpc-user=satoshi --rpc-pass=nakamoto
+oraibtc relayer --rpc-port=8332 --rpc-user=satoshi --rpc-pass=nakamoto
 ```
 
-Leave this running - the relayer will constantly scan the Bitcoin and Nomic chains and broadcast relevant data.
+Leave this running - the relayer will constantly scan the Bitcoin and OraiBTC chains and broadcast relevant data.
 
 The relayer will also create a server which listens on port 8999 for clients to announce their deposit addresses. To help make the network more reliable, if you run a relayer please open this port and let us know your node's address in Discord or a Github issue so we can have clients make use of your node. If you're going to make this service public, putting the server behind an HTTP reverse proxy is recommended for extra safety.
 
 ---
 
-Thanks for participating in the Nomic Testnet! We'll be updating the network
+Thanks for participating in the OraiBTC Testnet! We'll be updating the network
 often so stay tuned in [Discord](https://discord.gg/jH7U2NRJKn) for updates.
 
 ### 6. How to run lcd server
@@ -345,7 +345,7 @@ eg:
       "pub_key": {
         "type": "tendermint/PubKeyEd25519",
         "value": "PFGMB8wARZ5BRmO/8CmtY8em/G9LVix/4h5B9NwKlaY=" // This is validator key will
-         use for nomic declare
+         use for oraibtc declare
       },
       "voting_power": "1000000000"
     }
@@ -353,13 +353,13 @@ eg:
 }
 
 Example of running full validator node:
-nomic start \
+oraibtc start \
   --genesis {home_directory}/genesis.json \
   --state-sync-rpc {seed_node_url}:26657 \
   --state-sync-rpc {seed_node_url}:26657 \
   -- --p2p-peers c1ed727e36b0d7452c03513a87f77dc4766e2b38@{seed_node_url}:26656
 
-nomic declare \
+oraibtc declare \
   PFGMB8wARZ5BRmO/8CmtY8em/G9LVix/4h5B9NwKlaY= \
   1000000 \
   0.042 \
@@ -371,14 +371,14 @@ nomic declare \
   ALKSDHNLKASD \ // random string
   "Please delegate to me"
 
-nomic grpc \
+oraibtc grpc \
   -g 0.0.0.0 \
   --chain-id oraibtc-subnet-1
 
-nomic signer \
+oraibtc signer \
   --chain-id oraibtc-subnet-1
 
-nomic relayer  \
+oraibtc relayer  \
   --rpc-port=18332 --rpc-user=satoshi --rpc-pass=nakamoto \
   --chain-id oraibtc-subnet-1
 ```
