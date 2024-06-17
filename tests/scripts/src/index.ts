@@ -149,7 +149,14 @@ async function main(): Promise<void> {
 
   const endTime = new Date().getTime();
 
-  console.log("Total taked: ", (endTime - startTime) / 1000);
+  const waitSecondsTime = (endTime - startTime) / 1000;
+  console.log("Total taked: ", waitSecondsTime);
+  const total = result
+    .map((item: any) => item.result)
+    .reduce((accumulator: any, currentValue: any) => {
+      return accumulator + currentValue;
+    }, 0);
+  console.log("Tps:", total / waitSecondsTime);
   console.log(
     "Total executed txs: ",
     result

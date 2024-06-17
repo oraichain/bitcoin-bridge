@@ -86,7 +86,7 @@ async function main() {
         throw Error("Please input number of txs per thread");
     const numberOfThread = parseInt(args[0]);
     const numberOfTxs = parseInt(args[1]);
-    if (numberOfThread > 100) {
+    if (numberOfThread > 30) {
         throw Error("Threads is too large, may lead to overloaded");
     }
     const { address, client } = await (0, connect_1.connect)(mnemonic, network_1.OraiBtcLocalConfig, true);
@@ -116,7 +116,14 @@ async function main() {
         numOfTxs: numberOfTxs,
     })));
     const endTime = new Date().getTime();
-    console.log("Total taked: ", (endTime - startTime) / 1000);
+    const waitSecondsTime = (endTime - startTime) / 1000;
+    console.log("Total taked: ", waitSecondsTime);
+    const total = result
+        .map((item) => item.result)
+        .reduce((accumulator, currentValue) => {
+        return accumulator + currentValue;
+    }, 0);
+    console.log("Tps:", total / waitSecondsTime);
     console.log("Total executed txs: ", result
         .map((item) => item.result)
         .reduce((accumulator, currentValue) => {
