@@ -8,7 +8,7 @@ use crate::{
 
 use super::{
     InnerAppV0, InnerAppV1, InnerAppV2, InnerAppV3, InnerAppV4, InnerAppV5, InnerAppV6, InnerAppV7,
-    InnerAppV8,
+    InnerAppV8, InnerAppV9,
 };
 use bitcoin::{
     util::{uint::Uint256, BitArray},
@@ -171,6 +171,26 @@ impl MigrateFrom<InnerAppV6> for InnerAppV7 {
 impl MigrateFrom<InnerAppV7> for InnerAppV8 {
     #[allow(unused_mut)]
     fn migrate_from(mut other: InnerAppV7) -> Result<Self> {
+        let mut checkpoint = other.bitcoin.checkpoints.building_mut()?;
+        checkpoint.fee_rate = DEFAULT_FEE_RATE;
+        Ok(Self {
+            accounts: other.accounts,
+            staking: other.staking,
+            community_pool: other.community_pool,
+            staking_rewards: other.staking_rewards,
+            community_pool_rewards: other.community_pool_rewards,
+            bitcoin: other.bitcoin,
+            reward_timer: other.reward_timer,
+            upgrade: other.upgrade,
+            ibc: other.ibc,
+            cosmos: other.cosmos,
+        })
+    }
+}
+
+impl MigrateFrom<InnerAppV8> for InnerAppV9 {
+    #[allow(unused_mut)]
+    fn migrate_from(mut other: InnerAppV8) -> Result<Self> {
         let mut checkpoint = other.bitcoin.checkpoints.building_mut()?;
         checkpoint.fee_rate = DEFAULT_FEE_RATE;
         Ok(Self {

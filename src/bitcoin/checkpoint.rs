@@ -917,7 +917,7 @@ impl Checkpoint {
 }
 
 /// Configuration parameters used in processing checkpoints.
-#[orga(skip(Default), version = 9)]
+#[orga(skip(Default), version = 10)]
 #[derive(Clone)]
 pub struct Config {
     /// The minimum amount of time between the creation of checkpoints, in
@@ -976,17 +976,17 @@ pub struct Config {
     /// will be adjusted up if the checkpoint transaction is not confirmed
     /// within the target number of blocks, and will be adjusted down if the
     /// checkpoint transaction faster than the target.
-    #[orga(version(V1, V2, V3, V4, V5, V6, V7, V8, V9))]
+    #[orga(version(V1, V2, V3, V4, V5, V6, V7, V8, V9, V10))]
     pub target_checkpoint_inclusion: u32,
 
     /// The lower bound to use when adjusting the fee rate of the checkpoint
     /// transaction, in satoshis per virtual byte.
-    #[orga(version(V1, V2, V3, V4, V5, V6, V7, V8, V9))]
+    #[orga(version(V1, V2, V3, V4, V5, V6, V7, V8, V9, V10))]
     pub min_fee_rate: u64,
 
     /// The upper bound to use when adjusting the fee rate of the checkpoint
     /// transaction, in satoshis per virtual byte.
-    #[orga(version(V1, V2, V3, V4, V5, V6, V7, V8, V9))]
+    #[orga(version(V1, V2, V3, V4, V5, V6, V7, V8, V9, V10))]
     pub max_fee_rate: u64,
 
     /// The value (in basis points) to multiply by when calculating the miner
@@ -996,24 +996,24 @@ pub struct Config {
     /// The difference in the fee deducted and the fee paid in the checkpoint
     /// transaction is added to the fee pool, to help the network pay for
     /// its own miner fees.
-    #[orga(version(V3, V4, V5, V6, V7, V8, V9))]
+    #[orga(version(V3, V4, V5, V6, V7, V8, V9, V10))]
     pub user_fee_factor: u64,
 
     /// The threshold of signatures required to spend reserve scripts, as a
     /// ratio represented by a tuple, `(numerator, denominator)`.
     ///
     /// For example, `(9, 10)` means the threshold is 90% of the signatory set.
-    #[orga(version(V1, V2, V3, V4, V5, V6, V7, V8, V9))]
+    #[orga(version(V1, V2, V3, V4, V5, V6, V7, V8, V9, V10))]
     pub sigset_threshold: (u64, u64),
 
     /// The minimum amount of nBTC an account must hold to be eligible for an
     /// output in the emergency disbursal.
-    #[orga(version(V1, V2, V3, V4, V5, V6, V7, V8, V9))]
+    #[orga(version(V1, V2, V3, V4, V5, V6, V7, V8, V9, V10))]
     pub emergency_disbursal_min_tx_amt: u64,
 
     /// The amount of time between the creation of a checkpoint and when the
     /// associated emergency disbursal transactions can be spent, in seconds.
-    #[orga(version(V1, V2, V3, V4, V5, V6, V7, V8, V9))]
+    #[orga(version(V1, V2, V3, V4, V5, V6, V7, V8, V9, V10))]
     pub emergency_disbursal_lock_time_interval: u32,
 
     /// The maximum size of a final emergency disbursal transaction, in virtual
@@ -1021,7 +1021,7 @@ pub struct Config {
     ///
     /// The outputs to be included in final emergency disbursal transactions
     /// will be distributed across multiple transactions around this size.
-    #[orga(version(V1, V2, V3, V4, V5, V6, V7, V8, V9))]
+    #[orga(version(V1, V2, V3, V4, V5, V6, V7, V8, V9, V10))]
     pub emergency_disbursal_max_tx_size: u64,
 
     /// The maximum number of unconfirmed checkpoints before the network will
@@ -1037,7 +1037,7 @@ pub struct Config {
     /// This will also stop the fee rate from being adjusted too high if the
     /// issue is simply with relayers failing to report the confirmation of the
     /// checkpoint transactions.
-    #[orga(version(V2, V3, V4, V5, V6, V7, V8, V9))]
+    #[orga(version(V2, V3, V4, V5, V6, V7, V8, V9, V10))]
     pub max_unconfirmed_checkpoints: u32,
 }
 
@@ -1239,6 +1239,30 @@ impl MigrateFrom<ConfigV8> for ConfigV9 {
             max_inputs: value.max_inputs,
             max_outputs: value.max_outputs,
             max_age: value.max_age,
+            target_checkpoint_inclusion: value.target_checkpoint_inclusion,
+            min_fee_rate: MIN_FEE_RATE,
+            max_fee_rate: MAX_FEE_RATE,
+            sigset_threshold: value.sigset_threshold,
+            emergency_disbursal_min_tx_amt: value.emergency_disbursal_min_tx_amt,
+            emergency_disbursal_lock_time_interval: value.emergency_disbursal_lock_time_interval,
+            emergency_disbursal_max_tx_size: value.emergency_disbursal_max_tx_size,
+            #[cfg(feature = "testnet")]
+            max_unconfirmed_checkpoints: 15,
+            #[cfg(not(feature = "testnet"))]
+            max_unconfirmed_checkpoints: 1000,
+            user_fee_factor: USER_FEE_FACTOR,
+        })
+    }
+}
+
+impl MigrateFrom<ConfigV9> for ConfigV10 {
+    fn migrate_from(value: ConfigV9) -> OrgaResult<Self> {
+        Ok(Self {
+            min_checkpoint_interval: value.min_checkpoint_interval,
+            max_checkpoint_interval: MAX_CHECKPOINT_INTERVAL,
+            max_inputs: value.max_inputs,
+            max_outputs: value.max_outputs,
+            max_age: MAX_CHECKPOINT_AGE,
             target_checkpoint_inclusion: value.target_checkpoint_inclusion,
             min_fee_rate: MIN_FEE_RATE,
             max_fee_rate: MAX_FEE_RATE,
@@ -2879,13 +2903,13 @@ mod test {
     #[test]
     fn adjust_fee_rate() {
         let config = Config::default();
-        assert_eq!(super::adjust_fee_rate(100, true, &config), 125);
-        assert_eq!(super::adjust_fee_rate(100, false, &config), 100);
-        assert_eq!(super::adjust_fee_rate(2, true, &config), 100);
-        assert_eq!(super::adjust_fee_rate(0, true, &config), 100);
-        assert_eq!(super::adjust_fee_rate(2, false, &config), 100);
-        assert_eq!(super::adjust_fee_rate(200, true, &config), 250);
-        assert_eq!(super::adjust_fee_rate(300, true, &config), 375);
+        assert_eq!(super::adjust_fee_rate(100, true, &config), 500);
+        assert_eq!(super::adjust_fee_rate(100, false, &config), 500);
+        assert_eq!(super::adjust_fee_rate(2, true, &config), 500);
+        assert_eq!(super::adjust_fee_rate(0, true, &config), 500);
+        assert_eq!(super::adjust_fee_rate(2, false, &config), 500);
+        assert_eq!(super::adjust_fee_rate(400, true, &config), 500);
+        assert_eq!(super::adjust_fee_rate(475, true, &config), 593);
     }
 
     #[cfg(feature = "full")]
@@ -3002,14 +3026,14 @@ mod test {
         maybe_step(10);
 
         assert_eq!(queue.borrow().len().unwrap(), 1);
-        assert_eq!(queue.borrow().building().unwrap().fee_rate, 110);
+        assert_eq!(queue.borrow().building().unwrap().fee_rate, 550);
 
         set_time(1_000);
         maybe_step(10);
 
         assert_eq!(queue.borrow().len().unwrap(), 2);
         assert!(queue.borrow().last_completed_index().is_err());
-        assert_eq!(queue.borrow().building().unwrap().fee_rate, 110);
+        assert_eq!(queue.borrow().building().unwrap().fee_rate, 550);
 
         sign_cp(11);
 
@@ -3031,7 +3055,7 @@ mod test {
         sign_cp(11);
 
         assert_eq!(queue.borrow().len().unwrap(), 3);
-        assert_eq!(queue.borrow().building().unwrap().fee_rate, 110);
+        assert_eq!(queue.borrow().building().unwrap().fee_rate, 550);
 
         set_time(3_000);
         push_deposit();
@@ -3039,7 +3063,7 @@ mod test {
         sign_cp(11);
 
         assert_eq!(queue.borrow().len().unwrap(), 4);
-        assert_eq!(queue.borrow().building().unwrap().fee_rate, 110);
+        assert_eq!(queue.borrow().building().unwrap().fee_rate, 550);
 
         set_time(4_000);
         push_deposit();
@@ -3047,7 +3071,7 @@ mod test {
         sign_cp(12);
 
         assert_eq!(queue.borrow().len().unwrap(), 5);
-        assert_eq!(queue.borrow().building().unwrap().fee_rate, 110);
+        assert_eq!(queue.borrow().building().unwrap().fee_rate, 550);
 
         set_time(5_000);
         push_deposit();
@@ -3055,7 +3079,7 @@ mod test {
         sign_cp(13);
 
         assert_eq!(queue.borrow().len().unwrap(), 6);
-        assert_eq!(queue.borrow().building().unwrap().fee_rate, 137);
+        assert_eq!(queue.borrow().building().unwrap().fee_rate, 200);
 
         set_time(6_000);
         push_deposit();
@@ -3063,7 +3087,7 @@ mod test {
         sign_cp(13);
 
         assert_eq!(queue.borrow().len().unwrap(), 7);
-        assert_eq!(queue.borrow().building().unwrap().fee_rate, 137);
+        assert_eq!(queue.borrow().building().unwrap().fee_rate, 200);
 
         set_time(7_000);
         push_deposit();
@@ -3071,7 +3095,7 @@ mod test {
         sign_cp(14);
 
         assert_eq!(queue.borrow().len().unwrap(), 8);
-        assert_eq!(queue.borrow().building().unwrap().fee_rate, 171);
+        assert_eq!(queue.borrow().building().unwrap().fee_rate, 200);
 
         confirm_cp(5, 14);
         set_time(8_000);
@@ -3080,7 +3104,7 @@ mod test {
         sign_cp(15);
 
         assert_eq!(queue.borrow().len().unwrap(), 9);
-        assert_eq!(queue.borrow().building().unwrap().fee_rate, 171);
+        assert_eq!(queue.borrow().building().unwrap().fee_rate, 200);
 
         confirm_cp(7, 15);
         set_time(9_000);
@@ -3089,7 +3113,7 @@ mod test {
         sign_cp(16);
 
         assert_eq!(queue.borrow().len().unwrap(), 10);
-        assert_eq!(queue.borrow().building().unwrap().fee_rate, 128);
+        assert_eq!(queue.borrow().building().unwrap().fee_rate, 150);
 
         set_time(10_000);
         push_deposit();
@@ -3097,7 +3121,7 @@ mod test {
         sign_cp(17);
 
         assert_eq!(queue.borrow().len().unwrap(), 11);
-        assert_eq!(queue.borrow().building().unwrap().fee_rate, 128);
+        assert_eq!(queue.borrow().building().unwrap().fee_rate, 150);
     }
 
     #[cfg(feature = "full")]
@@ -3645,7 +3669,7 @@ mod test {
             assert_eq!(is_should_push, true);
         }
         // we accept input = output + fees
-        push_withdraw(99_958_350);
+        push_withdraw(99_650_350);
         {
             let is_should_push = queue
                 .borrow_mut()
@@ -3668,7 +3692,7 @@ mod test {
             let (input_amount, output_amount) = cp
                 .calc_total_input_and_output(&borrow_queue.config)
                 .unwrap();
-            assert_eq!(input_amount, 129_998_310);
+            assert_eq!(input_amount, 130132950);
             assert_eq!(output_amount, 130_019_980);
         }
         {

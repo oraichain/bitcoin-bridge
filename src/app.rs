@@ -65,7 +65,7 @@ impl Symbol for Nom {
     const NAME: &'static str = MAIN_NATIVE_TOKEN_DENOM;
 }
 
-#[orga(version = 8)]
+#[orga(version = 9)]
 pub struct InnerApp {
     #[call]
     pub accounts: Accounts<Nom>,
@@ -85,7 +85,7 @@ pub struct InnerApp {
     #[call]
     pub ibc: Ibc,
     #[cfg(not(feature = "testnet"))]
-    #[orga(version(V4, V5, V6, V7, V8))]
+    #[orga(version(V4, V5, V6, V7, V8, V9))]
     #[call]
     pub ibc: Ibc,
 
@@ -94,7 +94,7 @@ pub struct InnerApp {
     #[cfg(feature = "testnet")]
     pub cosmos: Cosmos,
     #[cfg(not(feature = "testnet"))]
-    #[orga(version(V4, V5, V6, V7, V8))]
+    #[orga(version(V4, V5, V6, V7, V8, V9))]
     pub cosmos: Cosmos,
 }
 
