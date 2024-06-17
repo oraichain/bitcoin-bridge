@@ -2,7 +2,7 @@ pub const MAIN_NATIVE_TOKEN_DENOM: &str = "uoraibtc";
 pub const BTC_NATIVE_TOKEN_DENOM: &str = "usat";
 
 #[cfg(not(feature = "devnet"))]
-pub const MIN_FEE_RATE: u64 = 200; // in satoshis per vbytes
+pub const MIN_FEE_RATE: u64 = 250; // in satoshis per vbytes
 #[cfg(feature = "devnet")]
 pub const MIN_FEE_RATE: u64 = 40; // ~ 100 sat/vb
 
