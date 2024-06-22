@@ -634,6 +634,7 @@ impl Relayer {
                     continue;
                 }
 
+                let mut already_execute = false;
                 let mut tx_bytes = vec![];
                 signed_tx.tx.consensus_encode(&mut tx_bytes)?;
                 match self
@@ -649,8 +650,20 @@ impl Relayer {
                     Err(err)
                         if err
                             .to_string()
-                            .contains("Transaction already in block chain") => {}
+                            .contains("Transaction already in block chain") =>
+                    {
+                        already_execute = true;
+                    }
                     Err(err) => Err(err)?,
+                }
+
+                if (already_execute == true) {
+                    relayed.insert(signed_tx.tx.txid());
+                    info!(
+                        "The recovery tx {} is already executed on the Bitcoin Network...",
+                        signed_tx.tx.txid()
+                    );
+                    continue;
                 }
 
                 let script_pubkey = signed_tx.tx.output[0].script_pubkey.clone();
