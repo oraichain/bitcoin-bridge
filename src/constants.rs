@@ -20,7 +20,7 @@ pub const TRANSFER_FEE: u64 = 0;
 
 // checkpoints
 pub const MAX_CHECKPOINT_INTERVAL: u64 = 60 * 60 * 24 * 3; // 3 days. This value should be smaller than max_deposit_age & MAX_CHECKPOINT_AGE
-pub const MAX_DEPOSIT_AGE: u64 = 60 * 60 * 24 * 2; // 2 days
+pub const MAX_DEPOSIT_AGE: u64 = 60 * 60 * 24 * 5; // 5 days
 pub const MAX_CHECKPOINT_AGE: u64 = 60 * 60 * 24 * 7 * 3; // 3 weeks to prune old checkpoints
 
 // app constants
