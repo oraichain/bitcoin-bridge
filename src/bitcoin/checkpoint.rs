@@ -2356,9 +2356,9 @@ impl CheckpointQueue {
 
                 if building.fees_collected < cp_miner_fees {
                     log::warn!(
-                        "Not enough collected to pay miner fee: {} < {}",
-                        building.fees_collected,
+                        "The new checkpoint can not be created due to previous checkpoint does not have enough collected to pay miner fee: {} > {}",
                         cp_miner_fees,
+                        building.fees_collected,
                     );
                     return Ok(false);
                 }
