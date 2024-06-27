@@ -1744,10 +1744,7 @@ mod tests {
         // action. After take pending, the unhandled confirmed index should increase to 2 since we handled 2 confirmed checkpoints
         let cp_dests = take_pending();
         let checkpoints = &btc.borrow().checkpoints;
-        assert_eq!(
-            btc.borrow().checkpoints.first_unhandled_confirmed_cp_index,
-            2
-        );
+        assert_eq!(checkpoints.first_unhandled_confirmed_cp_index, 2);
         assert_eq!(cp_dests.len(), 2);
         assert_eq!(cp_dests[0].len(), 2);
         assert_eq!(cp_dests[1].len(), 1);

@@ -1,3 +1,4 @@
+#![feature(string_leak)]
 #![feature(trivial_bounds)]
 #![feature(never_type)]
 #![allow(incomplete_features)]

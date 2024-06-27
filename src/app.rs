@@ -183,6 +183,11 @@ impl InnerApp {
     }
 
     #[query]
+    pub fn total_supply(&self) -> Result<Amount> {
+        Ok(Amount::new(INITIAL_SUPPLY_ORAIBTC))
+    }
+
+    #[query]
     pub fn escrowed_nbtc(&self, address: Address) -> Result<Amount> {
         self.ibc.transfer().symbol_balance::<Nbtc>(address)
     }

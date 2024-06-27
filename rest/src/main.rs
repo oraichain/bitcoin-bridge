@@ -13,11 +13,7 @@ use nomic::{
     },
     orga::{
         client::{wallet::Unsigned, AppClient},
-        coins::{
-            Address, Amount, Decimal, DelegationInfo, Staking, Symbol, ValidatorQueryInfo,
-            BECH32_PREFIX,
-        },
-        cosmrs::AccountId,
+        coins::{Address, Amount, Decimal, DelegationInfo, Staking, Symbol, ValidatorQueryInfo},
         encoding::EofTerminatedString,
         tendermint::client::HttpClient,
     },
@@ -33,7 +29,7 @@ use tokio::sync::RwLock;
 
 use ibc::core::ics24_host::identifier::{ChannelId, ConnectionId as IbcConnectionId, PortId};
 use ibc::{
-    applications::transfer::{context::TokenTransferValidationContext, error::TokenTransferError},
+    applications::transfer::context::TokenTransferValidationContext,
     clients::ics07_tendermint::client_state::ClientState,
 };
 use ibc_proto::google::protobuf::Any;
@@ -111,13 +107,13 @@ async fn validators(status: Option<String>) -> Value {
         .await
         .unwrap();
 
+    let all_keys: Vec<_> = app_client()
+        .query(|app: InnerApp| app.staking.consensus_keys())
+        .await
+        .unwrap();
+
     let mut validators = vec![];
     for validator in all_validators {
-        let cons_key = app_client()
-            .query(|app: InnerApp| app.staking.consensus_key(validator.address.into()))
-            .await
-            .unwrap(); // TODO: cache
-
         let validator_status = if validator.unbonding {
             "BOND_STATUS_UNBONDING"
         } else if validator.in_active_set {
@@ -129,6 +125,12 @@ async fn validators(status: Option<String>) -> Value {
         if !status.is_none() && status != Some(validator_status.to_owned()) {
             continue;
         }
+
+        let cons_key = all_keys
+            .iter()
+            .find(|entry| (**entry).0 == validator.address.into())
+            .map(|entry| (*entry).1)
+            .unwrap();
 
         let info: DeclareInfo =
             serde_json::from_str(String::from_utf8(validator.info.to_vec()).unwrap().as_str())
@@ -1245,6 +1247,24 @@ async fn staking_params() -> Result<Value, BadRequest<String>> {
     }))
 }
 
+#[get("/cosmos/bank/v1beta1/supply")]
+async fn bank_supply() -> Value {
+    let supply = app_client().query(|app| app.total_supply()).await.unwrap();
+
+    json!({
+        "supply": [
+            {
+                "denom": "unom",
+                "amount": supply.to_string()
+            }
+        ],
+        "pagination": {
+            "next_key": null,
+            "total": "1",
+        }
+    })
+}
+
 #[get("/cosmos/bank/v1beta1/supply/<denom>")]
 async fn bank_supply_unom(denom: &str) -> Result<Value, BadRequest<String>> {
     let total_balances: u64 = app_client()
@@ -1378,8 +1398,7 @@ async fn slashing_params() -> Value {
     })
 }
 
-#[get("/cosmos/slashing/v1beta1/signing_infos")]
-async fn signing_infos() -> Value {
+async fn get_signing_infos() -> Vec<Value> {
     let client = tm::HttpClient::new(app_host()).unwrap();
 
     let all_validators: Vec<ValidatorQueryInfo> = app_client()
@@ -1443,12 +1462,33 @@ async fn signing_infos() -> Value {
         signing_infos.push(signing_info);
     }
 
+    signing_infos
+}
+
+#[get("/cosmos/slashing/v1beta1/signing_infos")]
+async fn signing_infos() -> Value {
+    let signing_infos: Vec<_> = get_signing_infos().await;
+
     json!({
         "info": signing_infos,
         "pagination": {
             "next_key": null,
             "total": signing_infos.len().to_string(),
         }
+    })
+}
+
+#[get("/cosmos/slashing/v1beta1/signing_infos/<cons_addr>")]
+async fn signing_info(cons_addr: &str) -> Value {
+    let signing_infos: Vec<_> = get_signing_infos().await;
+
+    let signing_info = signing_infos
+        .iter()
+        .find(|value| (**value).get("address").unwrap() == cons_addr)
+        .unwrap();
+
+    json!({
+        "val_signing_info": signing_info
     })
 }
 
@@ -1462,7 +1502,12 @@ fn parse_block(res: tendermint_rpc::endpoint::block::Response) -> Value {
 
             json!({
                 "validator_address": base64::encode(signature_raw.validator_address),
-                "block_id_flag": signature_raw.block_id_flag,
+                "block_id_flag": match signature_raw.block_id_flag {
+                    1 => "BLOCK_ID_FLAG_ABSENT",
+                    2 => "BLOCK_ID_FLAG_COMMIT",
+                    3 => "BLOCK_ID_FLAG_NIL",
+                    i32::MIN..=0_i32 | 4_i32..=i32::MAX => "BLOCK_ID_FLAG_UNKNOWN"
+                },
                 "timestamp": signature_raw.timestamp,
                 "signature": base64::encode(signature_raw.signature),
             })
@@ -1838,6 +1883,7 @@ fn rocket() -> _ {
             ibc_apps_transfer_params,
             ibc_applications_transfer_params,
             bank_supply_unom,
+            bank_supply,
             bitcoin_config,
             bitcoin_checkpoint_config,
             bitcoin_latest_checkpoint,
@@ -1852,6 +1898,7 @@ fn rocket() -> _ {
             validator,
             slashing_params,
             signing_infos,
+            signing_info,
             latest_block,
             block,
             latest_validator_set,
