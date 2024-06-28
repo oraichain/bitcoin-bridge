@@ -287,7 +287,7 @@ impl BitcoinTx {
 
     /// The total value of the outputs in the transaction, in satoshis.
     pub fn value(&self) -> Result<u64> {
-        #[allow(clippy::manual_try_fold)]
+        // #[allow(clippy::manual_try_fold)]
         self.output
             .iter()?
             .fold(Ok(0), |sum: Result<u64>, out| Ok(sum? + out?.value))
