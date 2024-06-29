@@ -411,7 +411,12 @@ impl Relayer {
 
         for (i, block) in blocks.into_iter().enumerate().rev() {
             let height = (base_height - i) as u32;
+            info!(
+                "Scanning on block: {}",
+                block.bip34_block_height().unwrap_or(0)
+            );
             for (tx, matches) in self.relevant_txs(&block) {
+                info!("There is a match: {:?}", tx.ntxid());
                 for output in matches {
                     if let Err(err) = self
                         .maybe_relay_deposit(tx, height, &block.block_hash(), output, index.clone())
