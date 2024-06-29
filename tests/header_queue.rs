@@ -327,49 +327,49 @@ fn reorg_deep() {
     assert_eq!(header_queue.height().unwrap(), 36);
 }
 
-#[test]
-#[serial]
-#[ignore]
-fn mainnet_from_file() {
-    let ctx = Paid::default();
-    Context::add(ctx);
+// #[test]
+// #[serial]
+// #[ignore]
+// fn mainnet_from_file() {
+//     let ctx = Paid::default();
+//     Context::add(ctx);
 
-    let block_data = fs::read("tests/data/block-data").unwrap();
+//     let block_data = fs::read("tests/data/block-data").unwrap();
 
-    let headers: Vec<BlockHeader> = block_data
-        .chunks(80)
-        .map(|mut chunk| BlockHeader::consensus_decode(&mut chunk).unwrap())
-        .collect();
+//     let headers: Vec<BlockHeader> = block_data
+//         .chunks(80)
+//         .map(|mut chunk| BlockHeader::consensus_decode(&mut chunk).unwrap())
+//         .collect();
 
-    let first_header = headers.get(2016).unwrap();
+//     let first_header = headers.get(2016).unwrap();
 
-    let config = Config {
-        encoded_trusted_header: Adapter::new(first_header)
-            .encode()
-            .unwrap()
-            .try_into()
-            .unwrap(),
-        trusted_height: 2016,
-        min_difficulty_blocks: false,
-        retargeting: true,
-        ..Config::default()
-    };
+//     let config = Config {
+//         encoded_trusted_header: Adapter::new(first_header)
+//             .encode()
+//             .unwrap()
+//             .try_into()
+//             .unwrap(),
+//         trusted_height: 2016,
+//         min_difficulty_blocks: false,
+//         retargeting: true,
+//         ..Config::default()
+//     };
 
-    let mut header_queue = HeaderQueue::default();
-    header_queue.configure(config).unwrap();
+//     let mut header_queue = HeaderQueue::default();
+//     header_queue.configure(config).unwrap();
 
-    let mut add_headers = Vec::new();
-    for i in 2017..headers.len() - 1 {
-        let header = headers.get(i).unwrap();
+//     let mut add_headers = Vec::new();
+//     for i in 2017..headers.len() - 1 {
+//         let header = headers.get(i).unwrap();
 
-        if i % 25 == 0 {
-            header_queue.add(add_headers.clone().into()).unwrap();
-            add_headers.clear();
-            add_headers.push(WrappedHeader::from_header(header, i as u32));
-        } else {
-            add_headers.push(WrappedHeader::from_header(header, i as u32));
-        }
-    }
+//         if i % 25 == 0 {
+//             header_queue.add(add_headers.clone().into()).unwrap();
+//             add_headers.clear();
+//             add_headers.push(WrappedHeader::from_header(header, i as u32));
+//         } else {
+//             add_headers.push(WrappedHeader::from_header(header, i as u32));
+//         }
+//     }
 
-    header_queue.add(add_headers.into()).unwrap();
-}
+//     header_queue.add(add_headers.into()).unwrap();
+// }

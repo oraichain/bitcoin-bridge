@@ -1,7 +1,3 @@
-<h1 align="center">
-<img src="./logo.svg" width="40%">
-</h1>
-
 OraiBTC Bitcoin Bridge
 
 ## Testnet Interchain Upgrade
