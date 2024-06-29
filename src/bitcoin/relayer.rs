@@ -646,7 +646,9 @@ impl Relayer {
                     Ok(_) => {
                         info!("Broadcast recovery tx: {}", signed_tx.tx.txid());
                     }
-                    Err(err) if err.to_string().contains("bad-txns-inputs-missingorspent") => {}
+                    Err(err) if err.to_string().contains("bad-txns-inputs-missingorspent") => {
+                        already_execute = true;
+                    }
                     Err(err)
                         if err
                             .to_string()
@@ -657,7 +659,7 @@ impl Relayer {
                     Err(err) => Err(err)?,
                 }
 
-                if (already_execute == true) {
+                if already_execute == true {
                     relayed.insert(signed_tx.tx.txid());
                     info!(
                         "The recovery tx {} is already executed on the Bitcoin Network...",

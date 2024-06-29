@@ -29,23 +29,23 @@ run_autocannon() {
 # Environment: Macbook Pro - Chip: Apple M3 Pro - Ram: 18G
 # 10 connections
 run_autocannon 10
-sleep 5
+sleep 30
 
 # 100 connections
 run_autocannon 100
-sleep 5
+sleep 30
 
 # 1000 connections
 run_autocannon 1000
-sleep 5
+sleep 30
 
 # 2000 connections
 run_autocannon 2000
-sleep 5
+sleep 30
 
 # 5000 connections
 run_autocannon 5000
-sleep 5
+sleep 30
 
 # 5000 connections
 run_autocannon 10000
