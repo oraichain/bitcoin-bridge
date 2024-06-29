@@ -416,8 +416,8 @@ impl Relayer {
                 block.bip34_block_height().unwrap_or(0)
             );
             for (tx, matches) in self.relevant_txs(&block) {
-                info!("There is a match: {:?}", tx.ntxid());
                 for output in matches {
+                    info!("There is a match: {:?}", tx.ntxid());
                     if let Err(err) = self
                         .maybe_relay_deposit(tx, height, &block.block_hash(), output, index.clone())
                         .await
