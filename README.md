@@ -178,7 +178,7 @@ The funds in the Bitcoin bridge are held in a large multisig controlled by the O
 
 #### i. Set your signatory key
 
-This will submit your public key to the network so you can be added to the multisig. If you do not have a key stored at `~/.oraibtc-testnet-4c/signer/xpriv`, this will automatically generate a Bitcoin extended private key for you. **KEEP THIS KEY SAFE** - similar to your validator private key, it is important to be mindful of this key so that it is never lost or stolen.
+This will submit your public key to the network so you can be added to the multisig. If you do not have a key stored at `~/.oraibtc-testnet-1/signer/xpriv`, this will automatically generate a Bitcoin extended private key for you. **KEEP THIS KEY SAFE** - similar to your validator private key, it is important to be mindful of this key so that it is never lost or stolen.
 
 **Note:** Setting your signatory key is only required if you are starting a fresh node. Migrating nodes can move on to the next step.
 
@@ -250,8 +250,7 @@ The relayer will also create a server which listens on port 8999 for clients to 
 
 ---
 
-Thanks for participating in the OraiBTC Testnet! We'll be updating the network
-often so stay tuned in [Discord](https://discord.gg/jH7U2NRJKn) for updates.
+Thanks for participating in the OraiBTC Testnet!
 
 ### 6. How to run lcd server
 
