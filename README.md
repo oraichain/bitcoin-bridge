@@ -357,7 +357,7 @@ nomic start \
   --genesis {home_directory}/genesis.json \
   --state-sync-rpc {seed_node_url}:26657 \
   --state-sync-rpc {seed_node_url}:26657 \
-  -- --p2p-peers c1ed727e36b0d7452c03513a87f77dc4766e2b38@{seed_node_url}:26656
+  -- --p2p.seeds c1ed727e36b0d7452c03513a87f77dc4766e2b38@{seed_node_url}:26656
 
 nomic declare \
   PFGMB8wARZ5BRmO/8CmtY8em/G9LVix/4h5B9NwKlaY= \
