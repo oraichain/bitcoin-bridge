@@ -429,6 +429,25 @@ impl InnerApp {
         Ok(total_balances)
     }
 
+    pub fn get_account_balances(&self, address: Address, denom: &str) -> Result<u64> {
+        let mut account_balances: u64 = 0;
+        if denom.eq(Nom::NAME) {
+            let amount = self.accounts.balance(address)?;
+            let balance: u64 = amount.into();
+            account_balances += balance;
+        } else if denom.eq(Nbtc::NAME) {
+            let amount = self.bitcoin.accounts.balance(address)?;
+            let balance: u64 = amount.into();
+            account_balances += balance;
+        } else {
+            return Err(Error::App(format!(
+                "Cannot find balances of the {} denom",
+                denom
+            )));
+        };
+        Ok(account_balances)
+    }
+
     pub fn retire_old_ibc_channel(
         &mut self,
         current_height: u64,
@@ -725,6 +744,53 @@ mod abci {
     impl AbciQuery for InnerApp {
         fn abci_query(&self, req: &messages::RequestQuery) -> Result<messages::ResponseQuery> {
             let res_value = match req.path.as_str() {
+                "/cosmos.bank.v1beta1.Query/AllBalances" => {
+                    let request =
+                        ibc_proto::cosmos::bank::v1beta1::QueryAllBalancesRequest::decode(
+                            req.data.clone(),
+                        )
+                        .unwrap();
+
+                    let address: Address = request.address.parse().unwrap();
+                    let mut balances = vec![];
+
+                    if let Ok(balance) = self.get_account_balances(address, Nom::NAME) {
+                        balances.push(ibc_proto::cosmos::base::v1beta1::Coin {
+                            denom: Nom::NAME.to_string(),
+                            amount: balance.to_string(),
+                        });
+                    }
+
+                    if let Ok(balance) = self.get_account_balances(address, Nbtc::NAME) {
+                        balances.push(ibc_proto::cosmos::base::v1beta1::Coin {
+                            denom: Nbtc::NAME.to_string(),
+                            amount: balance.to_string(),
+                        });
+                    }
+
+                    let response = ibc_proto::cosmos::bank::v1beta1::QueryAllBalancesResponse {
+                        balances,
+                        pagination: None,
+                    };
+                    response.encode_to_vec().into()
+                }
+                "/cosmos.bank.v1beta1.Query/Balance" => {
+                    let request = ibc_proto::cosmos::bank::v1beta1::QueryBalanceRequest::decode(
+                        req.data.clone(),
+                    )
+                    .unwrap();
+                    let balance = self
+                        .get_account_balances(request.address.parse().unwrap(), &request.denom)
+                        .ok();
+                    let balance = balance.map(|balance| ibc_proto::cosmos::base::v1beta1::Coin {
+                        amount: balance.to_string(),
+                        denom: request.denom,
+                    });
+
+                    let response =
+                        ibc_proto::cosmos::bank::v1beta1::QueryBalanceResponse { balance };
+                    response.encode_to_vec().into()
+                }
                 "/cosmos.bank.v1beta1.Query/SupplyOf" => {
                     let request = ibc_proto::cosmos::bank::v1beta1::QuerySupplyOfRequest::decode(
                         req.data.clone(),
