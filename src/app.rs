@@ -1121,6 +1121,88 @@ mod abci {
                     };
                     response.encode_to_vec().into()
                 }
+                "/ibc.core.client.v1.QueryClientStatesRequest" => {
+                    let request =
+                        ibc_proto::ibc::core::client::v1::QueryClientStatesRequest::decode(
+                            req.data.clone(),
+                        )
+                        .unwrap();
+                    let client_states = self.ibc.ctx.query_client_states().unwrap();
+                    let total = client_states.len() as u64;
+                    let response = ibc_proto::ibc::core::client::v1::QueryClientStatesResponse {
+                        client_states,
+                        pagination: Some(ibc_proto::cosmos::base::query::v1beta1::PageResponse {
+                            next_key: vec![],
+                            total,
+                        }),
+                    };
+                    response.encode_to_vec().into()
+                }
+                "/ibc.core.client.v1.QueryClientStateRequest" => {
+                    let request =
+                        ibc_proto::ibc::core::client::v1::QueryClientStateRequest::decode(
+                            req.data.clone(),
+                        )
+                        .unwrap();
+                    let client_states = self.ibc.ctx.query_client_states().unwrap();
+                    let client_state = client_states
+                        .iter()
+                        .find(|s| s.client_id == request.client_id)
+                        .unwrap()
+                        .client_state
+                        .clone();
+                    let response = ibc_proto::ibc::core::client::v1::QueryClientStateResponse {
+                        client_state,
+                        proof: vec![],
+                        proof_height: None,
+                    };
+                    response.encode_to_vec().into()
+                }
+                "/ibc.core.client.v1.QueryConsensusStatesRequest" => {
+                    let request =
+                        ibc_proto::ibc::core::client::v1::QueryConsensusStatesRequest::decode(
+                            req.data.clone(),
+                        )
+                        .unwrap();
+                    let client_id = ClientId::decode(request.client_id.as_bytes()).unwrap();
+                    let consensus_states = self.ibc.ctx.query_consensus_states(client_id).unwrap();
+                    let total = consensus_states.len() as u64;
+                    let response = ibc_proto::ibc::core::client::v1::QueryConsensusStatesResponse {
+                        consensus_states,
+                        pagination: Some(ibc_proto::cosmos::base::query::v1beta1::PageResponse {
+                            next_key: vec![],
+                            total,
+                        }),
+                    };
+                    response.encode_to_vec().into()
+                }
+                "/ibc.core.client.v1.QueryConsensusStateRequest" => {
+                    let request =
+                        ibc_proto::ibc::core::client::v1::QueryConsensusStateRequest::decode(
+                            req.data.clone(),
+                        )
+                        .unwrap();
+                    let client_id = ClientId::decode(request.client_id.as_bytes()).unwrap();
+                    let consensus_states = self.ibc.ctx.query_consensus_states(client_id).unwrap();
+                    let consensus_state = consensus_states
+                        .iter()
+                        .rev()
+                        .find(|state| {
+                            let height = state.height.as_ref().unwrap();
+                            height.revision_number == request.revision_number
+                                && height.revision_height == request.revision_height
+                        })
+                        .unwrap()
+                        .consensus_state
+                        .clone();
+
+                    let response = ibc_proto::ibc::core::client::v1::QueryConsensusStateResponse {
+                        consensus_state,
+                        proof: vec![],
+                        proof_height: None,
+                    };
+                    response.encode_to_vec().into()
+                }
                 _ => {
                     // return Err(Error::ABCI(format!("Invalid query path: {}", req.path)));
                     return self.ibc.abci_query(req);

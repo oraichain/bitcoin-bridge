@@ -14,7 +14,8 @@ use nomic::{
     orga::{
         client::{wallet::Unsigned, AppClient},
         coins::{Address, Amount, Decimal, DelegationInfo, Staking, Symbol, ValidatorQueryInfo},
-        encoding::{ByteTerminatedString, EofTerminatedString},
+        encoding::{Decode, EofTerminatedString},
+        ibc::ClientId,
         tendermint::client::HttpClient,
     },
     utils::DeclareInfo,
@@ -27,7 +28,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use ibc::core::ics24_host::identifier::{ClientId, ConnectionId as IbcConnectionId};
+use ibc::core::ics24_host::identifier::ConnectionId as IbcConnectionId;
 use ibc::{
     applications::transfer::context::TokenTransferValidationContext,
     clients::ics07_tendermint::{
@@ -1651,22 +1652,12 @@ fn proposals() -> Value {
     })
 }
 
-#[get("/ibc/core/client/v1/client_states/<client_id>")]
 #[allow(deprecated)]
-async fn ibc_client_state(client_id: &str) -> Value {
-    let clientid = ClientId::from_str(client_id).unwrap();
-    let client_states: Vec<IdentifiedClientState> = app_client()
-        .query(|app: InnerApp| app.ibc.ctx.query_client_states())
-        .await
-        .unwrap();
-    let state: &IdentifiedClientState = client_states
-        .iter()
-        .find(|state| state.client_id == clientid.to_string())
-        .unwrap();
-    let state_as_any: Any = state.client_state.clone().unwrap();
-    let client_state_tmp: ClientState = ClientState::try_from(state_as_any).unwrap().to_owned();
-    let client_state = client_state_tmp.clone();
-    let raw_client_state: RawTmClientState = RawTmClientState::from(client_state_tmp);
+fn get_client_state_value(state: &IdentifiedClientState) -> Value {
+    let client_state = ClientState::try_from(state.client_state.clone().unwrap())
+        .unwrap()
+        .to_owned();
+    let raw_client_state = RawTmClientState::from(client_state.clone());
 
     let proof_specs: Vec<_> = raw_client_state
         .proof_specs
@@ -1687,36 +1678,122 @@ async fn ibc_client_state(client_id: &str) -> Value {
         .collect();
 
     json!({
-        "client_state": {
-            "@type": "/ibc.lightclients.tendermint.v1.ClientState",
-            "chain_id": raw_client_state.chain_id,
-            "trust_level": client_state.trust_level,
-            "trusting_period": raw_client_state.trusting_period.map(|v| format!("{}s", v.seconds)),
-            "unbonding_period": format!("{}s", client_state.unbonding_period.as_secs()),
-            "max_clock_drift": raw_client_state.max_clock_drift.map(|v| format!("{}s", v.seconds)),
-            "frozen_height": raw_client_state.frozen_height.map(|h| json!({
-                "revision_height": h.revision_height.to_string(),
-                "revision_number": h.revision_number.to_string(),
-            })),
-            "latest_height": raw_client_state.latest_height.map(|h| json!({
-                "revision_height": h.revision_height.to_string(),
-                "revision_number": h.revision_number.to_string(),
-            })),
-            "proof_specs": proof_specs,
-            "upgrade_path": client_state.upgrade_path,
-            "allow_update_after_expiry": raw_client_state.allow_update_after_expiry,
-            "allow_update_after_misbehaviour": raw_client_state.allow_update_after_misbehaviour,
+        "@type": "/ibc.lightclients.tendermint.v1.ClientState",
+        "chain_id": raw_client_state.chain_id,
+        "trust_level": client_state.trust_level,
+        "trusting_period": raw_client_state.trusting_period.map(|v| format!("{}s", v.seconds)),
+        "unbonding_period": format!("{}s", client_state.unbonding_period.as_secs()),
+        "max_clock_drift": raw_client_state.max_clock_drift.map(|v| format!("{}s", v.seconds)),
+        "frozen_height": raw_client_state.frozen_height.map(|h| json!({
+            "revision_height": h.revision_height.to_string(),
+            "revision_number": h.revision_number.to_string(),
+        })),
+        "latest_height": raw_client_state.latest_height.map(|h| json!({
+            "revision_height": h.revision_height.to_string(),
+            "revision_number": h.revision_number.to_string(),
+        })),
+        "proof_specs": proof_specs,
+        "upgrade_path": client_state.upgrade_path,
+        "allow_update_after_expiry": raw_client_state.allow_update_after_expiry,
+        "allow_update_after_misbehaviour": raw_client_state.allow_update_after_misbehaviour,
+    })
+}
+
+fn get_consensus_state_value(state: &ConsensusStateWithHeight) -> Value {
+    let consensus_state = TmConsensusState::try_from(state.consensus_state.clone().unwrap())
+        .unwrap()
+        .to_owned();
+    let raw_consensus_state = RawTmConsensusState::from(consensus_state.clone());
+    json!({
+        "@type": "/ibc.lightclients.tendermint.v1.ConsensusState",
+        "timestamp": consensus_state.timestamp,
+        "root": raw_consensus_state.root,
+        "next_validator_hash": consensus_state.next_validators_hash,
+    })
+}
+
+#[get("/ibc/core/client/v1/client_states")]
+async fn ibc_client_states() -> Value {
+    let client_states: Vec<IdentifiedClientState> = app_client()
+        .query(|app: InnerApp| app.ibc.ctx.query_client_states())
+        .await
+        .unwrap();
+
+    let client_state_values: Vec<_> = client_states
+        .iter()
+        .map(|state| {
+            let client_state_value = get_client_state_value(state);
+            json!({
+                "client_id": state.client_id,
+                "client_state": client_state_value,
+            })
+        })
+        .collect();
+
+    json!({
+        "client_states": client_state_values,
+        "pagination": {
+            "next_key": null,
+            "total": client_state_values.len().to_string()
         },
+    })
+}
+
+#[get("/ibc/core/client/v1/client_states/<client_id>")]
+async fn ibc_client_state(client_id: &str) -> Value {
+    let client_states: Vec<IdentifiedClientState> = app_client()
+        .query(|app: InnerApp| app.ibc.ctx.query_client_states())
+        .await
+        .unwrap();
+    let state = client_states
+        .iter()
+        .find(|state| state.client_id == client_id)
+        .unwrap();
+    let client_state_value = get_client_state_value(state);
+
+    json!({
+        "client_state": client_state_value,
         "proof": null,
         "proof_height": {
-        "revision_number": "0",
-        "revision_height": "0"
+            "revision_number": "0",
+            "revision_height": "0"
         }
+    })
+}
+#[get("/ibc/core/client/v1/consensus_states/<client_id>")]
+async fn ibc_consensus_states_by_client_id(client_id: &str) -> Value {
+    let consensus_states: Vec<ConsensusStateWithHeight> = app_client()
+        .query(|app: InnerApp| {
+            let client_id = ClientId::decode(client_id.as_bytes()).unwrap();
+            let consensus_state = app.ibc.ctx.query_consensus_states(client_id)?;
+            Ok(consensus_state)
+        })
+        .await
+        .unwrap();
+
+    let consensus_state_values: Vec<_> = consensus_states
+        .iter()
+        .map(|state| {
+            let consensus_state_value = get_consensus_state_value(state);
+            json!({
+                "consensus_state": consensus_state_value,
+                "height": {
+                    "revision_number": "0",
+                    "revision_height": "0"
+                }
+            })
+        })
+        .collect();
+    json!({
+        "consensus_states": consensus_state_values,
+        "pagination": {
+            "next_key": null,
+            "total": consensus_state_values.len().to_string()
+        },
     })
 }
 
 #[get("/ibc/core/client/v1/consensus_states/<client_id>/revision/<revision_number>/height/<revision_height>")]
-#[allow(deprecated)]
 async fn ibc_consensus_state_by_revision_number_and_revision_height(
     client_id: &str,
     revision_number: u64,
@@ -1724,11 +1801,8 @@ async fn ibc_consensus_state_by_revision_number_and_revision_height(
 ) -> Value {
     let consensus_states: Vec<ConsensusStateWithHeight> = app_client()
         .query(|app: InnerApp| {
-            let client_id = ClientId::from_str(client_id).unwrap();
-            let consensus_state = app
-                .ibc
-                .ctx
-                .query_consensus_states(ByteTerminatedString(client_id))?;
+            let client_id = ClientId::decode(client_id.as_bytes()).unwrap();
+            let consensus_state = app.ibc.ctx.query_consensus_states(client_id)?;
             Ok(consensus_state)
         })
         .await
@@ -1742,22 +1816,15 @@ async fn ibc_consensus_state_by_revision_number_and_revision_height(
             height.revision_number == revision_number && height.revision_height == revision_height
         })
         .unwrap();
-    let state_as_any: Any = found_consensus_state.consensus_state.clone().unwrap();
-    let consensus_state_tmp: TmConsensusState =
-        TmConsensusState::try_from(state_as_any).unwrap().to_owned();
-    let consensus_state = consensus_state_tmp.clone();
-    let raw_consensus_state = RawTmConsensusState::from(consensus_state_tmp);
+
+    let consensus_state_value = get_consensus_state_value(found_consensus_state);
 
     json!({
-        "consensus_state": {
-            "timestamp": consensus_state.timestamp,
-            "root": raw_consensus_state.root,
-            "next_validator_hash": consensus_state.next_validators_hash,
-        },
+        "consensus_state": consensus_state_value,
         "proof": null,
         "proof_height": {
-        "revision_number": "0",
-        "revision_height": "0"
+            "revision_number": "0",
+            "revision_height": "0",
         }
     })
 }
@@ -2039,7 +2106,10 @@ fn rocket() -> _ {
             checkpoint_fee_info,
             escrow_address_balance,
             ibc_client_state,
-            ibc_consensus_state_by_revision_number_and_revision_height
+            ibc_client_states,
+            ibc_consensus_state_by_revision_number_and_revision_height,
+            ibc_consensus_states_by_client_id,
+            escrow_account_balance
         ],
     )
 }
