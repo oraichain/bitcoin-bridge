@@ -188,6 +188,7 @@ impl Relayer {
                             None => {
                                 app_client(app_client_addr)
                                     .query(|app: InnerApp| {
+                                        info!("[DEBUG] sigset on post address: {}", query.sigset_index);
                                         let cp = app.bitcoin.checkpoints.get(query.sigset_index)?;
                                         if !cp.deposits_enabled {
                                             return Err(orga::Error::App(
@@ -195,6 +196,7 @@ impl Relayer {
                                             ));
                                         }
                                         let sigset = cp.sigset.clone();
+                                        info!("[FINALIZED DEBUG] sigset post address: {}", query.sigset_index);
                                         Ok(sigsets.insert(query.sigset_index, sigset))
                                     })
                                     .await
@@ -258,6 +260,7 @@ impl Relayer {
             .and_then(move |query: Sigset| async move {
                 let sigset: RawSignatorySet = app_client(app_client_addr)
                     .query(|app: crate::app::InnerApp| {
+                        info!("[DEBUG] sigset_with_index_route: {}", query.sigset_index);
                         let checkpoint = app.bitcoin.checkpoints.get(query.sigset_index)?;
                         let est_miner_fee =
                             checkpoint.fee_rate * checkpoint.sigset.est_witness_vsize();
@@ -267,6 +270,10 @@ impl Relayer {
                             BRIDGE_FEE_RATE,
                             est_miner_fee as f64 / 100_000_000.0,
                             deposits_enabled,
+                        );
+                        info!(
+                            "[FINALIZED DEBUG] sigset_with_index_route: {}",
+                            query.sigset_index
                         );
                         Ok(sigset)
                     })
