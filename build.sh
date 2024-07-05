@@ -14,6 +14,7 @@ if [ ! -f "$NOMIC_LEGACY_PATH" ]; then
     git checkout .
     git checkout develop
     git pull
+    echo $NOMIC_LEGACY_REV
     git checkout $NOMIC_LEGACY_REV
     git fetch
 
