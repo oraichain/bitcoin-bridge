@@ -1,23 +1,16 @@
 version: "3.8"
 
 services:
-  nomic:
+  first_node:
     tty: true
     restart: on-failure
-    image: oraichain/foundation-bitcoin-bridge:0.0.1 # docker build -t oraichain/foundation-bitcoin-bridge:0.0.1 .
-    ports:
-      - 36657:26657
-      - 9001:9001
-      - 2317:1317
-    volumes:
-      - ./:/workspace
+    build:
+      context: .
+      dockerfile: Dockerfile
 
-  hermes:
-    image: informalsystems/hermes:v1.7.0
-    working_dir: /workspace
-    user: root # use as root to install nano and write to files
+  second_node:
     tty: true
-    entrypoint: tail -f /dev/null
-    volumes:
-      - ./:/workspace/
-      - ./hermes-ibc/config.toml:/root/.hermes/config.toml
+    restart: on-failure
+    build:
+      context: .
+      dockerfile: Dockerfile

@@ -5,11 +5,7 @@ RUN rustup default nightly
 
 WORKDIR /workspace
 
-COPY src/ /workspace/src
-COPY build.rs Cargo.lock Cargo.toml rust-toolchain.toml /workspace/
-COPY wasm/ /workspace/wasm
-COPY rest/ /workspace/rest
-COPY networks/ /workspace/networks
-COPY targe[t]/ /workspace/target
-
-RUN cargo install --locked --path /workspace/ --target-dir /workspace/target
+RUN git clone https://github.com/oraichain/bitcoin-bridge.git
+WORKDIR /workspace/bitcoin-bridge
+RUN git checkout develop
+RUN cargo install --locked --path .
