@@ -5,6 +5,7 @@ set -e
 BUILD_DIR=$OUT_DIR/nomic
 NOMIC_LEGACY_PATH=$OUT_DIR/nomic-$NOMIC_LEGACY_REV
 
+echo "This is build dir $BUILD_DIR"
 if [ ! -f "$NOMIC_LEGACY_PATH" ]; then
     echo "Building legacy nomic at $NOMIC_LEGACY_PATH..."
     if [ ! -d "$BUILD_DIR" ]; then
