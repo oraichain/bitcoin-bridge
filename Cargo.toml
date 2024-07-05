@@ -3,7 +3,7 @@ authors = ["The Turbofish Team <hello@turbofish.org>"]
 default-run = "nomic"
 edition = "2021"
 name = "nomic"
-version = "8.0.0"
+version = "9.0.0"
 
 [dependencies]
 base64 = "0.13.0"
