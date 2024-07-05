@@ -11,10 +11,9 @@ if [ ! -f "$NOMIC_LEGACY_PATH" ]; then
         git clone https://github.com/oraichain/bitcoin-bridge.git $BUILD_DIR
     fi
     cd $BUILD_DIR
-    git checkout .
     git checkout develop
     git pull
-    echo $NOMIC_LEGACY_REV
+    echo "This is nomic legacy rev $NOMIC_LEGACY_REV"
     git checkout $NOMIC_LEGACY_REV
     git fetch
 
