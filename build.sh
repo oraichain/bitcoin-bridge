@@ -12,7 +12,7 @@ if [ ! -f "$NOMIC_LEGACY_PATH" ]; then
     fi
     cd $BUILD_DIR
     git checkout .
-    git checkout main
+    git checkout develop
     git pull
     git checkout $NOMIC_LEGACY_REV
     git fetch
