@@ -687,6 +687,7 @@ mod abci {
             // NOTICE: 1532747 -> 1532847 will have an update here
             self.retire_old_ibc_channel(ctx.height, 1532847)?;
             let now = ctx.header.time.as_ref().unwrap().seconds;
+            info!("upgrade_authorized {}", in_upgrade_window(now));
             self.upgrade.step(
                 &vec![Self::CONSENSUS_VERSION].try_into().unwrap(),
                 in_upgrade_window(now),
