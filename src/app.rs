@@ -1766,7 +1766,7 @@ pub fn in_upgrade_window(now_seconds: i64) -> bool {
         use chrono::prelude::*;
         let now = Utc.timestamp_opt(now_seconds, 0).unwrap();
         let valid_weekday = now.weekday().num_days_from_monday() < 5; // Monday - Friday
-        let valid_time = now.hour() == 17 && now.minute() < 10; // 17:00 - 17:10 UTC
+        let valid_time = now.hour() == 17 && now.minute() < 50; // 17:00 - 17:10 UTC
         valid_weekday && valid_time
     }
 
