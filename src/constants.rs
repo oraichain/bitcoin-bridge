@@ -31,3 +31,6 @@ pub const DEFAULT_MAX_SCAN_CHECKPOINTS_CONFIRMATIONS: usize = 3000; // this vari
 
 // call fee usats
 pub const CALL_FEE_USATS: u64 = 0;
+
+// check change rates duration
+pub const CHANGE_RATE_DURATION: u64 = 60 * 60 * 6;
