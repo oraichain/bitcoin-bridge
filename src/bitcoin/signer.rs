@@ -1,6 +1,7 @@
 use crate::app::{InnerApp, Nom};
 use crate::bitcoin::checkpoint::CheckpointStatus;
 use crate::bitcoin::threshold_sig::Signature;
+use crate::constants::CHANGE_RATE_DURATION;
 use crate::error::{Error, Result};
 use crate::utils::load_bitcoin_key;
 use bitcoin::secp256k1::{Message, Secp256k1};
@@ -453,7 +454,11 @@ where
             .as_secs();
         let reset_index = self.reset_index.unwrap_or(0);
         let rates = (self.app_client)()
-            .query(|app| Ok(app.bitcoin.change_rates(60 * 60 * 24, now, reset_index)?))
+            .query(|app| {
+                Ok(app
+                    .bitcoin
+                    .change_rates(CHANGE_RATE_DURATION, now, reset_index)?)
+            })
             .await?;
 
         let withdrawal_rate = rates.withdrawal as f64 / 10_000.0;
