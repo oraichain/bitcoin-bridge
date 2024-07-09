@@ -1703,16 +1703,16 @@ impl UpgradeStatusCmd {
         if let Some(t) = activation_time {
             use chrono::prelude::*;
             let mut activation_date = chrono::Utc.timestamp_opt(t, 0).unwrap();
-            if activation_date.hour() > 17
-                || activation_date.hour() == 17 && activation_date.minute() >= 10
-            {
-                activation_date = activation_date
-                    .checked_add_days(chrono::Days::new(1))
-                    .unwrap();
-            }
+            // if activation_date.hour() > 17
+            //     || activation_date.hour() == 17 && activation_date.minute() >= 10
+            // {
+            //     activation_date = activation_date
+            //         .checked_add_days(chrono::Days::new(1))
+            //         .unwrap();
+            // }
             activation_date = activation_date
-                .with_hour(17)
-                .unwrap()
+                // .with_hour(17)
+                // .unwrap()
                 .with_minute(0)
                 .unwrap()
                 .with_second(0)
