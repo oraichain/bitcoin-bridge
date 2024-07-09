@@ -73,11 +73,7 @@ semver = "1.0.18"
 toml = {version = "0.7.2", features = ["parse"]}
 
 [features]
-<<<<<<<=======
->>>>>>>feat/update_activation_time
-HEAD 
 default = ["full", "feat-ibc", "legacy-bin"]
-default = ["full", "feat-ibc"]
 devnet = []
 faucet-test = []
 feat-ibc = ["orga/feat-ibc"]
