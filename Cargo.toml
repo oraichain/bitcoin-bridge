@@ -29,7 +29,7 @@ ics23 = "0.10.2"
 js-sys = {version = "0.3.55"}
 lazy_static = "1.4.0"
 log = "0.4.17"
-orga = {git = "https://github.com/oraichain/orga.git", rev = "b8bd07ad3e26849ba78d87355636e96638a78469", features = [
+orga = {git = "https://github.com/oraichain/orga.git", rev = "2e564047bb9a5a06590fe116c395e87529d2d5ba", features = [
   "merk-verify",
 ]}
 pretty_env_logger = {git = "https://github.com/seanmonstar/pretty-env-logger", rev = "f9e35b6dbbf06de55222c944c9e1e176ce73b3a7"}
