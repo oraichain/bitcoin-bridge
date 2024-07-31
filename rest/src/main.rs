@@ -571,6 +571,18 @@ async fn bitcoin_value_locked() -> Value {
     })
 }
 
+#[get("/bitcoin/fee_pool")]
+async fn bitcoin_fee_pool() -> Value {
+    let value = app_client()
+        .query(|app: InnerApp| Ok(app.bitcoin.fee_pool()?))
+        .await
+        .unwrap();
+
+    json!({
+        "fee_pool": value
+    })
+}
+
 #[get("/bitcoin/checkpoint_fee_info?<checkpoint_index>")]
 async fn checkpoint_fee_info(checkpoint_index: Option<u32>) -> Value {
     let data = app_client()
@@ -2095,6 +2107,7 @@ fn rocket() -> _ {
             ibc_connection_client_state,
             ibc_connection_channels,
             bitcoin_value_locked,
+            bitcoin_fee_pool,
             bitcoin_checkpoint,
             bitcoin_checkpoint_queue,
             checkpoint_disbursal_txs,

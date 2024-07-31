@@ -882,6 +882,12 @@ impl Bitcoin {
         Ok(last_completed.reserve_output()?.unwrap().value)
     }
 
+    #[query]
+    pub fn fee_pool(&self) -> Result<i64> {
+        let value = self.fee_pool;
+        Ok(value)
+    }
+
     /// The network (e.g. Bitcoin testnet vs mainnet) which is currently
     /// configured.
     pub fn network(&self) -> bitcoin::Network {
